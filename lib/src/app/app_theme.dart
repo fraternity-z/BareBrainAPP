@@ -6,21 +6,28 @@ class BareBrainTheme {
 
   static ThemeData light() {
     final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xff3157d7),
+      seedColor: const Color(0xff1f1f23),
       brightness: Brightness.light,
     ).copyWith(
-      primary: const Color(0xff1d4ed8),
+      primary: const Color(0xff1f1f23),
       onPrimary: Colors.white,
-      secondary: const Color(0xff0f766e),
-      tertiary: const Color(0xff7c3aed),
-      surface: Colors.white,
+      primaryContainer: const Color(0xffececef),
+      onPrimaryContainer: const Color(0xff1f1f23),
+      secondary: const Color(0xffd97745),
+      onSecondary: Colors.white,
+      secondaryContainer: const Color(0xffffece4),
+      onSecondaryContainer: const Color(0xff7a3418),
+      tertiary: const Color(0xff5b6472),
+      surface: const Color(0xfffbfafc),
       surfaceContainerLowest: Colors.white,
-      surfaceContainerLow: const Color(0xfff8fafc),
-      surfaceContainer: const Color(0xfff1f5f9),
-      surfaceContainerHigh: const Color(0xffe9eef5),
-      surfaceContainerHighest: const Color(0xffe2e8f0),
-      outline: const Color(0xffcbd5e1),
-      outlineVariant: const Color(0xffe2e8f0),
+      surfaceContainerLow: const Color(0xfffbfafc),
+      surfaceContainer: const Color(0xfff4f3f6),
+      surfaceContainerHigh: const Color(0xffeeeeef),
+      surfaceContainerHighest: const Color(0xffe4e4e7),
+      outline: const Color(0xffd7d6dc),
+      outlineVariant: const Color(0xffe3e2e8),
+      onSurface: const Color(0xff17171a),
+      onSurfaceVariant: const Color(0xff7d7d86),
     );
 
     return _build(colors).useSystemChineseFont(Brightness.light);
@@ -28,21 +35,28 @@ class BareBrainTheme {
 
   static ThemeData dark() {
     final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xff6ea8ff),
+      seedColor: const Color(0xfff1f1f4),
       brightness: Brightness.dark,
     ).copyWith(
-      primary: const Color(0xff8bb4ff),
-      onPrimary: const Color(0xff09204f),
-      secondary: const Color(0xff5eead4),
-      tertiary: const Color(0xffc4b5fd),
-      surface: const Color(0xff111318),
-      surfaceContainerLowest: const Color(0xff090b10),
-      surfaceContainerLow: const Color(0xff14171f),
-      surfaceContainer: const Color(0xff1b1f29),
-      surfaceContainerHigh: const Color(0xff242936),
-      surfaceContainerHighest: const Color(0xff303746),
-      outline: const Color(0xff505867),
-      outlineVariant: const Color(0xff323947),
+      primary: const Color(0xfff1f1f4),
+      onPrimary: const Color(0xff17171a),
+      primaryContainer: const Color(0xff323236),
+      onPrimaryContainer: const Color(0xfff3f3f5),
+      secondary: const Color(0xffffa071),
+      onSecondary: const Color(0xff3a1607),
+      secondaryContainer: const Color(0xff5a2714),
+      onSecondaryContainer: const Color(0xffffdccd),
+      tertiary: const Color(0xffa7aab2),
+      surface: const Color(0xff101012),
+      surfaceContainerLowest: const Color(0xff17171a),
+      surfaceContainerLow: const Color(0xff101012),
+      surfaceContainer: const Color(0xff1f1f23),
+      surfaceContainerHigh: const Color(0xff2a2a2f),
+      surfaceContainerHighest: const Color(0xff34343a),
+      outline: const Color(0xff575760),
+      outlineVariant: const Color(0xff37373d),
+      onSurface: const Color(0xfff3f3f5),
+      onSurfaceVariant: const Color(0xffaaaab2),
     );
 
     return _build(colors).useSystemChineseFont(Brightness.dark);
@@ -75,7 +89,7 @@ class BareBrainTheme {
         showDragHandle: true,
         dragHandleColor: colors.outline,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
       cardTheme: CardThemeData(
@@ -83,19 +97,20 @@ class BareBrainTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: colors.outlineVariant),
         ),
       ),
       drawerTheme: DrawerThemeData(
-        backgroundColor: colors.surfaceContainerLow,
+        backgroundColor: colors.surface,
         shape: const RoundedRectangleBorder(),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -105,22 +120,25 @@ class BareBrainTheme {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           foregroundColor: colors.onSurface,
           side: BorderSide(color: colors.outline),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           fixedSize: const Size.square(40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          foregroundColor: colors.onSurfaceVariant,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          foregroundColor: colors.onSurface,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -135,29 +153,29 @@ class BareBrainTheme {
           fontWeight: FontWeight.w700,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colors.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colors.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colors.primary, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colors.error, width: 1.4),
         ),
       ),
       listTileTheme: ListTileThemeData(
         minVerticalPadding: 10,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         iconColor: colors.onSurfaceVariant,
         textColor: colors.onSurface,
@@ -169,7 +187,7 @@ class BareBrainTheme {
           color: colors.onInverseSurface,
           fontWeight: FontWeight.w600,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
