@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../formatters/chat_message_time_formatter.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     required this.message,
+    this.displaySettings = const ChatDisplaySettings(),
     this.onCopy,
     this.onRetry,
     super.key,
   });
 
   final ChatMessage message;
+  final ChatDisplaySettings displaySettings;
   final VoidCallback? onCopy;
   final VoidCallback? onRetry;
 
@@ -21,21 +24,22 @@ class MessageBubble extends StatelessWidget {
     final isUser = message.author == ChatMessageAuthor.user;
     final isSystem = message.author == ChatMessageAuthor.system;
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final background = isUser
-        ? colors.primary
-        : isSystem
-            ? colors.errorContainer
-            : colors.surfaceContainerLowest;
-    final foreground = isUser
-        ? colors.onPrimary
-        : isSystem
-            ? colors.onErrorContainer
-            : colors.onSurface;
-    final borderColor = isUser
-        ? colors.primary
-        : isSystem
-            ? colors.error
-            : colors.outlineVariant;
+    final style = _BubbleStyle.resolve(
+      colors,
+      isUser: isUser,
+      isSystem: isSystem,
+      background: displaySettings.messageBackground,
+    );
+    final contentStyle = _scaledTextStyle(
+      Theme.of(context).textTheme.bodyMedium,
+      displaySettings.messageFontScale,
+    )?.copyWith(
+      color: style.foreground,
+      fontFamily: _codeFontFamily(message.content, displaySettings),
+      height: 1.42,
+    );
+    final canShowCopy = onCopy != null && displaySettings.showMessageActions;
+    final canShowRetry = onRetry != null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -47,34 +51,46 @@ class MessageBubble extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: background,
+                color: style.background,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor, width: 0.7),
+                border: Border.all(color: style.border, width: 0.7),
               ),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                padding: EdgeInsets.symmetric(
+                  horizontal: displaySettings.compactMessageSpacing ? 12 : 15,
+                  vertical: displaySettings.compactMessageSpacing ? 8 : 11,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: isUser
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: <Widget>[
-                    SelectableText(
-                      message.content,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: foreground,
-                            height: 1.42,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      ChatMessageTimeFormatter.format(message.createdAt),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: foreground.withValues(alpha: 0.72),
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
+                    if (displaySettings.selectableMessageText)
+                      SelectableText(
+                        message.content,
+                        style: contentStyle,
+                      )
+                    else
+                      Text(
+                        message.content,
+                        style: contentStyle,
+                      ),
+                    if (displaySettings.showMessageTimestamps) ...<Widget>[
+                      SizedBox(
+                        height: displaySettings.compactMessageSpacing ? 4 : 6,
+                      ),
+                      Text(
+                        ChatMessageTimeFormatter.format(message.createdAt),
+                        style: _scaledTextStyle(
+                          Theme.of(context).textTheme.labelSmall,
+                          displaySettings.messageFontScale,
+                        )?.copyWith(
+                          color: style.foreground.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     if (message.isPending) ...<Widget>[
                       const SizedBox(height: 8),
                       SizedBox(
@@ -82,29 +98,29 @@ class MessageBubble extends StatelessWidget {
                         width: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: foreground,
+                          color: style.foreground,
                         ),
                       ),
                     ],
-                    if (onCopy != null || onRetry != null) ...<Widget>[
+                    if (canShowCopy || canShowRetry) ...<Widget>[
                       const SizedBox(height: 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          if (onCopy != null)
+                          if (canShowCopy)
                             IconButton(
                               tooltip: '复制消息',
                               onPressed: onCopy,
-                              color: foreground,
+                              color: style.foreground,
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
                               icon: const Icon(Icons.copy_all_outlined),
                             ),
-                          if (onRetry != null)
+                          if (canShowRetry)
                             TextButton.icon(
                               onPressed: onRetry,
                               style: TextButton.styleFrom(
-                                foregroundColor: foreground,
+                                foregroundColor: style.foreground,
                               ),
                               icon: const Icon(Icons.refresh),
                               label: const Text('重试'),
@@ -121,4 +137,72 @@ class MessageBubble extends StatelessWidget {
       },
     );
   }
+}
+
+class _BubbleStyle {
+  const _BubbleStyle({
+    required this.background,
+    required this.foreground,
+    required this.border,
+  });
+
+  final Color background;
+  final Color foreground;
+  final Color border;
+
+  static _BubbleStyle resolve(
+    ColorScheme colors, {
+    required bool isUser,
+    required bool isSystem,
+    required ChatMessageBackground background,
+  }) {
+    if (isSystem) {
+      return _BubbleStyle(
+        background: colors.errorContainer,
+        foreground: colors.onErrorContainer,
+        border: colors.error,
+      );
+    }
+
+    return switch (background) {
+      ChatMessageBackground.standard => _BubbleStyle(
+          background: isUser ? colors.primary : colors.surfaceContainerLowest,
+          foreground: isUser ? colors.onPrimary : colors.onSurface,
+          border: isUser ? colors.primary : colors.outlineVariant,
+        ),
+      ChatMessageBackground.soft => _BubbleStyle(
+          background:
+              isUser ? colors.secondaryContainer : colors.surfaceContainerHigh,
+          foreground: isUser ? colors.onSecondaryContainer : colors.onSurface,
+          border: isUser ? colors.secondary : colors.outlineVariant,
+        ),
+      ChatMessageBackground.plain => _BubbleStyle(
+          background: colors.surfaceContainerLowest,
+          foreground: colors.onSurface,
+          border: isUser ? colors.primary : colors.outlineVariant,
+        ),
+    };
+  }
+}
+
+TextStyle? _scaledTextStyle(TextStyle? source, double scale) {
+  if (source == null) {
+    return null;
+  }
+
+  return source.copyWith(fontSize: (source.fontSize ?? 14) * scale);
+}
+
+String? _codeFontFamily(String content, ChatDisplaySettings settings) {
+  final fontFamily = settings.codeFont.fontFamily;
+  if (fontFamily == null) {
+    return null;
+  }
+
+  if (content.contains('```') ||
+      content.split('\n').any((line) => line.startsWith('    '))) {
+    return fontFamily;
+  }
+
+  return null;
 }

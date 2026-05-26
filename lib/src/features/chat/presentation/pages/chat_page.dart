@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../domain/entities/chat_conversation_summary.dart';
 import '../../domain/entities/chat_connection_settings.dart';
+import '../../domain/entities/chat_display_settings.dart';
 import '../controllers/chat_controller.dart';
 import '../settings/settings_page.dart';
 import '../widgets/message_bubble.dart';
@@ -13,10 +14,14 @@ import '../widgets/message_bubble.dart';
 class ChatPage extends StatefulWidget {
   const ChatPage({
     required this.controller,
+    this.displaySettings = const ChatDisplaySettings(),
+    this.onDisplaySettingsChanged,
     super.key,
   });
 
   final ChatController controller;
+  final ChatDisplaySettings displaySettings;
+  final ValueChanged<ChatDisplaySettings>? onDisplaySettingsChanged;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -25,11 +30,13 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _composer = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _pendingAutoScrollTimer;
   String? _composerConversationId;
   bool _sidebarCollapsed = false;
 
   @override
   void dispose() {
+    _pendingAutoScrollTimer?.cancel();
     _composer.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -63,8 +70,12 @@ class _ChatPageState extends State<ChatPage> {
                     ),
               body: SafeArea(
                 child: DecoratedBox(
+                  key: const Key('chat_surface'),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    color: _chatSurfaceColor(
+                      Theme.of(context).colorScheme,
+                      widget.displaySettings,
+                    ),
                   ),
                   child: Row(
                     children: <Widget>[
@@ -120,6 +131,7 @@ class _ChatPageState extends State<ChatPage> {
                               Expanded(
                                 child: _MessageList(
                                   controller: widget.controller,
+                                  displaySettings: widget.displaySettings,
                                   onCopyMessage: (content) {
                                     unawaited(_copyMessage(content));
                                   },
@@ -128,6 +140,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               _Composer(
                                 controller: widget.controller,
+                                displaySettings: widget.displaySettings,
                                 textController: _composer,
                                 onChanged: widget.controller.updateDraft,
                                 onSend: _send,
@@ -151,23 +164,40 @@ class _ChatPageState extends State<ChatPage> {
     final text = _composer.text;
     _composer.clear();
     widget.controller.updateDraft('');
+    if (widget.displaySettings.hapticFeedback && text.trim().isNotEmpty) {
+      unawaited(HapticFeedback.selectionClick());
+    }
     await widget.controller.send(text);
     if (!mounted) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      if (!_scrollController.hasClients) {
-        return;
-      }
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
+      _scheduleScrollToBottom(widget.displaySettings.autoScrollDelay);
     });
+  }
+
+  void _scheduleScrollToBottom(Duration delay) {
+    _pendingAutoScrollTimer?.cancel();
+    if (delay <= Duration.zero) {
+      unawaited(_animateScrollToBottom());
+      return;
+    }
+
+    _pendingAutoScrollTimer = Timer(delay, () {
+      _pendingAutoScrollTimer = null;
+      unawaited(_animateScrollToBottom());
+    });
+  }
+
+  Future<void> _animateScrollToBottom() async {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+    await _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
   }
 
   bool _isSidebarTogglePointer(Offset localPosition) {
@@ -196,6 +226,8 @@ class _ChatPageState extends State<ChatPage> {
             return ChatSettingsPage(
               settings: widget.controller.settings,
               onSettingsChanged: widget.controller.updateSettings,
+              displaySettings: widget.displaySettings,
+              onDisplaySettingsChanged: widget.onDisplaySettingsChanged,
               onTestConnection: widget.controller.testConnection,
             );
           },
@@ -239,6 +271,27 @@ BoxDecoration _templateSurfaceDecoration(
     borderRadius: BorderRadius.circular(radius),
     border: showBorder ? Border.all(color: colors.outlineVariant) : null,
     boxShadow: boxShadow,
+  );
+}
+
+TextStyle? _scaledTextStyle(TextStyle? source, double scale) {
+  if (source == null) {
+    return null;
+  }
+
+  return source.copyWith(fontSize: (source.fontSize ?? 14) * scale);
+}
+
+Color _chatSurfaceColor(
+  ColorScheme colors,
+  ChatDisplaySettings displaySettings,
+) {
+  final base = colors.surfaceContainerHigh.withValues(alpha: 0.32);
+  return Color.alphaBlend(
+    colors.surfaceContainerLow.withValues(
+      alpha: displaySettings.backgroundMaskOpacity,
+    ),
+    base,
   );
 }
 
@@ -976,11 +1029,13 @@ class _Header extends StatelessWidget {
 class _MessageList extends StatelessWidget {
   const _MessageList({
     required this.controller,
+    required this.displaySettings,
     required this.onCopyMessage,
     required this.scrollController,
   });
 
   final ChatController controller;
+  final ChatDisplaySettings displaySettings;
   final ValueChanged<String> onCopyMessage;
   final ScrollController scrollController;
 
@@ -994,10 +1049,13 @@ class _MessageList extends StatelessWidget {
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
       itemCount: controller.messages.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 14),
+      separatorBuilder: (_, __) => SizedBox(
+        height: displaySettings.compactMessageSpacing ? 8 : 14,
+      ),
       itemBuilder: (context, index) {
         return MessageBubble(
           message: controller.messages[index],
+          displaySettings: displaySettings,
           onCopy: () => onCopyMessage(controller.messages[index].content),
           onRetry: controller.canRetryLastMessage &&
                   index == controller.messages.length - 2
@@ -1351,12 +1409,14 @@ class _EmptyMessagePainter extends CustomPainter {
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
+    required this.displaySettings,
     required this.textController,
     required this.onChanged,
     required this.onSend,
   });
 
   final ChatController controller;
+  final ChatDisplaySettings displaySettings;
   final TextEditingController textController;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
@@ -1390,6 +1450,10 @@ class _Composer extends StatelessWidget {
                   keyboardType: TextInputType.multiline,
                   textInputAction: TextInputAction.newline,
                   onChanged: onChanged,
+                  style: _scaledTextStyle(
+                    Theme.of(context).textTheme.bodyMedium,
+                    displaySettings.messageFontScale,
+                  ),
                   decoration: const InputDecoration(
                     hintText: '输入消息与 AI 聊天',
                     contentPadding: EdgeInsets.zero,

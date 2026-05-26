@@ -1,5 +1,6 @@
 import 'package:bare_brain_app/src/features/chat/data/repositories/memory_chat_session_store.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_display_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_session_snapshot.dart';
 import 'package:bare_brain_app/src/features/chat/domain/repositories/chat_repository.dart';
 import 'package:bare_brain_app/src/features/chat/domain/usecases/send_chat_message.dart';
@@ -73,6 +74,63 @@ void main() {
       );
       expect(decoration.border, isNotNull);
       expect(decoration.boxShadow, isNull);
+
+      controller.dispose();
+    });
+
+    testWidgets('applies display font scale to the composer', (tester) async {
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            displaySettings: const ChatDisplaySettings(messageFontScale: 1.25),
+          ),
+        ),
+      );
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+
+      expect(textField.style?.fontSize, 17.5);
+
+      controller.dispose();
+    });
+
+    testWidgets('applies display background mask to the chat surface',
+        (tester) async {
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            displaySettings: const ChatDisplaySettings(
+              backgroundMaskOpacity: 0,
+            ),
+          ),
+        ),
+      );
+
+      final surface = tester.widget<DecoratedBox>(
+        find.byKey(const Key('chat_surface')),
+      );
+      final decoration = surface.decoration as BoxDecoration;
+      final colors = Theme.of(
+        tester.element(find.byKey(const Key('chat_surface'))),
+      ).colorScheme;
+      final expected = Color.alphaBlend(
+        colors.surfaceContainerLow.withValues(alpha: 0),
+        colors.surfaceContainerHigh.withValues(alpha: 0.32),
+      );
+
+      expect(decoration.color, expected);
 
       controller.dispose();
     });

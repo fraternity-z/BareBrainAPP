@@ -1,22 +1,27 @@
 import 'package:chinese_font_library/chinese_font_library.dart';
 import 'package:flutter/material.dart';
 
+import '../features/chat/domain/entities/chat_display_settings.dart';
+
 class BareBrainTheme {
   const BareBrainTheme._();
 
-  static ThemeData light() {
+  static ThemeData light({
+    ChatDisplaySettings displaySettings = const ChatDisplaySettings(),
+  }) {
+    final palette = _ThemePalette.light(displaySettings.themePreset);
     final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xff1f1f23),
+      seedColor: palette.seed,
       brightness: Brightness.light,
     ).copyWith(
-      primary: const Color(0xff1f1f23),
-      onPrimary: Colors.white,
-      primaryContainer: const Color(0xffececef),
-      onPrimaryContainer: const Color(0xff1f1f23),
-      secondary: const Color(0xffd97745),
-      onSecondary: Colors.white,
-      secondaryContainer: const Color(0xffffece4),
-      onSecondaryContainer: const Color(0xff7a3418),
+      primary: palette.primary,
+      onPrimary: palette.onPrimary,
+      primaryContainer: palette.primaryContainer,
+      onPrimaryContainer: palette.onPrimaryContainer,
+      secondary: palette.secondary,
+      onSecondary: palette.onSecondary,
+      secondaryContainer: palette.secondaryContainer,
+      onSecondaryContainer: palette.onSecondaryContainer,
       tertiary: const Color(0xff5b6472),
       surface: const Color(0xfffbfafc),
       surfaceContainerLowest: Colors.white,
@@ -30,22 +35,28 @@ class BareBrainTheme {
       onSurfaceVariant: const Color(0xff7d7d86),
     );
 
-    return _build(colors).useSystemChineseFont(Brightness.light);
+    final theme = _build(colors, appFont: displaySettings.appFont);
+    return displaySettings.appFont == ChatAppFont.system
+        ? theme.useSystemChineseFont(Brightness.light)
+        : theme;
   }
 
-  static ThemeData dark() {
+  static ThemeData dark({
+    ChatDisplaySettings displaySettings = const ChatDisplaySettings(),
+  }) {
+    final palette = _ThemePalette.dark(displaySettings.themePreset);
     final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xfff1f1f4),
+      seedColor: palette.seed,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: const Color(0xfff1f1f4),
-      onPrimary: const Color(0xff17171a),
-      primaryContainer: const Color(0xff323236),
-      onPrimaryContainer: const Color(0xfff3f3f5),
-      secondary: const Color(0xffffa071),
-      onSecondary: const Color(0xff3a1607),
-      secondaryContainer: const Color(0xff5a2714),
-      onSecondaryContainer: const Color(0xffffdccd),
+      primary: palette.primary,
+      onPrimary: palette.onPrimary,
+      primaryContainer: palette.primaryContainer,
+      onPrimaryContainer: palette.onPrimaryContainer,
+      secondary: palette.secondary,
+      onSecondary: palette.onSecondary,
+      secondaryContainer: palette.secondaryContainer,
+      onSecondaryContainer: palette.onSecondaryContainer,
       tertiary: const Color(0xffa7aab2),
       surface: const Color(0xff101012),
       surfaceContainerLowest: const Color(0xff17171a),
@@ -59,14 +70,21 @@ class BareBrainTheme {
       onSurfaceVariant: const Color(0xffaaaab2),
     );
 
-    return _build(colors).useSystemChineseFont(Brightness.dark);
+    final theme = _build(colors, appFont: displaySettings.appFont);
+    return displaySettings.appFont == ChatAppFont.system
+        ? theme.useSystemChineseFont(Brightness.dark)
+        : theme;
   }
 
-  static ThemeData _build(ColorScheme colors) {
+  static ThemeData _build(
+    ColorScheme colors, {
+    required ChatAppFont appFont,
+  }) {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colors,
       scaffoldBackgroundColor: colors.surfaceContainerLow,
+      fontFamily: appFont.fontFamily,
     );
     final textTheme = _textTheme(base.textTheme, colors);
 
@@ -230,5 +248,105 @@ class BareBrainTheme {
           ),
           labelSmall: source.labelSmall?.copyWith(letterSpacing: 0),
         );
+  }
+}
+
+class _ThemePalette {
+  const _ThemePalette({
+    required this.seed,
+    required this.primary,
+    required this.onPrimary,
+    required this.primaryContainer,
+    required this.onPrimaryContainer,
+    required this.secondary,
+    required this.onSecondary,
+    required this.secondaryContainer,
+    required this.onSecondaryContainer,
+  });
+
+  final Color seed;
+  final Color primary;
+  final Color onPrimary;
+  final Color primaryContainer;
+  final Color onPrimaryContainer;
+  final Color secondary;
+  final Color onSecondary;
+  final Color secondaryContainer;
+  final Color onSecondaryContainer;
+
+  static _ThemePalette light(ChatThemePreset preset) {
+    return switch (preset) {
+      ChatThemePreset.seaFog => const _ThemePalette(
+          seed: Color(0xff2f6879),
+          primary: Color(0xff244f5d),
+          onPrimary: Colors.white,
+          primaryContainer: Color(0xffdceff4),
+          onPrimaryContainer: Color(0xff12333d),
+          secondary: Color(0xff3f7886),
+          onSecondary: Colors.white,
+          secondaryContainer: Color(0xffe3f2f5),
+          onSecondaryContainer: Color(0xff1e4c57),
+        ),
+      ChatThemePreset.graphite => const _ThemePalette(
+          seed: Color(0xff1f1f23),
+          primary: Color(0xff1f1f23),
+          onPrimary: Colors.white,
+          primaryContainer: Color(0xffececef),
+          onPrimaryContainer: Color(0xff1f1f23),
+          secondary: Color(0xff5b6472),
+          onSecondary: Colors.white,
+          secondaryContainer: Color(0xffeceef2),
+          onSecondaryContainer: Color(0xff2c3139),
+        ),
+      ChatThemePreset.warmSun => const _ThemePalette(
+          seed: Color(0xffd97745),
+          primary: Color(0xff38251d),
+          onPrimary: Colors.white,
+          primaryContainer: Color(0xffffece4),
+          onPrimaryContainer: Color(0xff7a3418),
+          secondary: Color(0xffd97745),
+          onSecondary: Colors.white,
+          secondaryContainer: Color(0xffffece4),
+          onSecondaryContainer: Color(0xff7a3418),
+        ),
+    };
+  }
+
+  static _ThemePalette dark(ChatThemePreset preset) {
+    return switch (preset) {
+      ChatThemePreset.seaFog => const _ThemePalette(
+          seed: Color(0xffd9eef2),
+          primary: Color(0xffd9eef2),
+          onPrimary: Color(0xff0d2831),
+          primaryContainer: Color(0xff1d424d),
+          onPrimaryContainer: Color(0xffe8f8fb),
+          secondary: Color(0xff8fcbd4),
+          onSecondary: Color(0xff0f3038),
+          secondaryContainer: Color(0xff234953),
+          onSecondaryContainer: Color(0xffd7f2f7),
+        ),
+      ChatThemePreset.graphite => const _ThemePalette(
+          seed: Color(0xfff1f1f4),
+          primary: Color(0xfff1f1f4),
+          onPrimary: Color(0xff17171a),
+          primaryContainer: Color(0xff323236),
+          onPrimaryContainer: Color(0xfff3f3f5),
+          secondary: Color(0xffa7aab2),
+          onSecondary: Color(0xff202126),
+          secondaryContainer: Color(0xff34363d),
+          onSecondaryContainer: Color(0xffeff0f4),
+        ),
+      ChatThemePreset.warmSun => const _ThemePalette(
+          seed: Color(0xffffd2bd),
+          primary: Color(0xffffeadf),
+          onPrimary: Color(0xff3a1607),
+          primaryContainer: Color(0xff5a2714),
+          onPrimaryContainer: Color(0xffffdccd),
+          secondary: Color(0xffffa071),
+          onSecondary: Color(0xff3a1607),
+          secondaryContainer: Color(0xff5a2714),
+          onSecondaryContainer: Color(0xffffdccd),
+        ),
+    };
   }
 }

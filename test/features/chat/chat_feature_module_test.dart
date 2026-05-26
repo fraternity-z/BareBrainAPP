@@ -3,6 +3,7 @@ import 'package:bare_brain_app/src/features/chat/data/datasources/chat_transport
 import 'package:bare_brain_app/src/features/chat/data/datasources/key_value_store.dart';
 import 'package:bare_brain_app/src/features/chat/data/models/bare_brain_ws_payload.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_display_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -43,6 +44,32 @@ void main() {
       expect(restored.messages.first.content, 'ping');
       expect(restored.messages.last.content, 'pong');
       expect(restored.conversations.single.messageCount, 2);
+
+      controller.dispose();
+      restored.dispose();
+    });
+
+    test('wires display settings to persistent key value storage', () async {
+      final keyValueStore = MemoryKeyValueStore();
+      final controller = ChatFeatureModule.createDisplaySettingsController(
+        keyValueStore: keyValueStore,
+      );
+
+      controller.update(
+        const ChatDisplaySettings(
+          colorMode: ChatColorMode.dark,
+          themePreset: ChatThemePreset.graphite,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final restored = ChatFeatureModule.createDisplaySettingsController(
+        keyValueStore: keyValueStore,
+      );
+      await restored.restore();
+
+      expect(restored.settings.colorMode, ChatColorMode.dark);
+      expect(restored.settings.themePreset, ChatThemePreset.graphite);
 
       controller.dispose();
       restored.dispose();

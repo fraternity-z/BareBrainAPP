@@ -1,4 +1,5 @@
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_display_settings.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/settings/display_settings_page.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/settings/network_proxy_page.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/settings/quick_phrases_page.dart';
@@ -43,6 +44,68 @@ void main() {
       expect(find.text('搜索服务'), findsNothing);
       expect(find.text('MCP'), findsNothing);
       expect(find.text('连接参数'), findsOneWidget);
+    });
+
+    testWidgets('updates color mode from the general settings row',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 1400));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedDisplaySettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatSettingsPage(
+            settings: settings,
+            onSettingsChanged: (_) {},
+            onDisplaySettingsChanged: (settings) {
+              changedDisplaySettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('settings_row_color_mode')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('color_mode_dark')));
+      await tester.pumpAndSettle();
+
+      expect(changedDisplaySettings, isNotNull);
+      expect(changedDisplaySettings!.colorMode, ChatColorMode.dark);
+      expect(find.text('深色'), findsOneWidget);
+    });
+
+    testWidgets('opens display settings and propagates changes',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 1400));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedDisplaySettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatSettingsPage(
+            settings: settings,
+            onSettingsChanged: (_) {},
+            onDisplaySettingsChanged: (settings) {
+              changedDisplaySettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('settings_row_display')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('display_theme_preset_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('theme_graphite')));
+      await tester.pumpAndSettle();
+
+      expect(changedDisplaySettings, isNotNull);
+      expect(changedDisplaySettings!.themePreset, ChatThemePreset.graphite);
+      expect(find.text('岩灰'), findsOneWidget);
     });
 
     testWidgets('saves connection parameters from the connection sheet',
@@ -173,6 +236,247 @@ void main() {
 
       expect(rowRight - valueRight, lessThanOrEqualTo(76));
       expect(valueLeft, greaterThan(titleRight));
+      expect(find.text('应用语言'), findsNothing);
+    });
+
+    testWidgets('updates choice rows and reports new settings', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('display_message_font_scale_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('message_font_125')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.messageFontScale, 1.25);
+      expect(find.text('125%'), findsOneWidget);
+    });
+
+    testWidgets('updates message background and font choices', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('display_message_background_row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('display_message_background_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('message_background_soft')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.messageBackground, ChatMessageBackground.soft);
+      expect(find.text('柔和'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('display_app_font_row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('display_app_font_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('app_font_sans')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings!.appFont, ChatAppFont.sans);
+      expect(find.text('屏显黑体'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('display_code_font_row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('display_code_font_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('code_font_mono')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings!.codeFont, ChatCodeFont.mono);
+      expect(find.text('等宽'), findsOneWidget);
+    });
+
+    testWidgets('toggles chat item display switches', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('display_chat_items_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('display_switch_show_timestamps')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('display_switch_show_actions')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('display_switch_compact_spacing')));
+      await tester.pump();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.showMessageTimestamps, isFalse);
+      expect(changedSettings!.showMessageActions, isFalse);
+      expect(changedSettings!.compactMessageSpacing, isTrue);
+    });
+
+    testWidgets('toggles rendering switches', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('display_rendering_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('display_switch_selectable_text')));
+      await tester.pump();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.selectableMessageText, isFalse);
+    });
+
+    testWidgets('toggles haptic feedback from the display row', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('display_haptic_feedback_row')));
+      await tester.pump();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.hapticFeedback, isFalse);
+    });
+
+    testWidgets('updates behavior color mode from the display page',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('display_behavior_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('display_color_mode_dark')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.colorMode, ChatColorMode.dark);
+      expect(find.text('深色'), findsOneWidget);
+    });
+
+    testWidgets('updates auto scroll delay and background mask',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      ChatDisplaySettings? changedSettings;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DisplaySettingsPage(
+            onChanged: (settings) {
+              changedSettings = settings;
+            },
+          ),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('display_auto_scroll_delay_row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('display_auto_scroll_delay_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('auto_scroll_2')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings, isNotNull);
+      expect(changedSettings!.autoScrollDelay, const Duration(seconds: 2));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('display_background_mask_row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('display_background_mask_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('mask_50')));
+      await tester.pumpAndSettle();
+
+      expect(changedSettings!.backgroundMaskOpacity, 0.5);
+      expect(find.text('50%'), findsOneWidget);
     });
   });
 

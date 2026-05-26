@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/chat_connection_settings.dart';
+import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_ota_settings.dart';
 import '../widgets/settings_sheet.dart';
 import 'display_settings_page.dart';
@@ -15,12 +16,16 @@ class ChatSettingsPage extends StatefulWidget {
   const ChatSettingsPage({
     required this.settings,
     required this.onSettingsChanged,
+    this.displaySettings = const ChatDisplaySettings(),
+    this.onDisplaySettingsChanged,
     this.onTestConnection,
     super.key,
   });
 
   final ChatConnectionSettings settings;
   final ValueChanged<ChatConnectionSettings> onSettingsChanged;
+  final ChatDisplaySettings displaySettings;
+  final ValueChanged<ChatDisplaySettings>? onDisplaySettingsChanged;
   final TestChatConnection? onTestConnection;
 
   @override
@@ -29,11 +34,24 @@ class ChatSettingsPage extends StatefulWidget {
 
 class _ChatSettingsPageState extends State<ChatSettingsPage> {
   late ChatConnectionSettings _settings;
+  late ChatDisplaySettings _displaySettings;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.settings;
+    _displaySettings = widget.displaySettings;
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatSettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _settings = widget.settings;
+    }
+    if (oldWidget.displaySettings != widget.displaySettings) {
+      _displaySettings = widget.displaySettings;
+    }
   }
 
   @override
@@ -51,8 +69,8 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 key: const Key('settings_row_color_mode'),
                 icon: Icons.light_mode_outlined,
                 title: '颜色模式',
-                value: '浅色',
-                onTap: () => _showPending('颜色模式'),
+                value: _displaySettings.colorMode.label,
+                onTap: _openColorModeSettings,
               ),
               SettingsRow(
                 key: const Key('settings_row_display'),
@@ -171,11 +189,30 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     _applySettings(_settings.copyWith(otaSettings: next));
   }
 
+  Future<void> _openColorModeSettings() async {
+    final next = await showModalBottomSheet<ChatColorMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return _ColorModePickerSheet(selected: _displaySettings.colorMode);
+      },
+    );
+
+    if (next == null || !mounted) {
+      return;
+    }
+
+    _applyDisplaySettings(_displaySettings.copyWith(colorMode: next));
+  }
+
   void _openDisplaySettings() {
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (context) => const DisplaySettingsPage(),
+          builder: (context) => DisplaySettingsPage(
+            settings: _displaySettings,
+            onChanged: _applyDisplaySettings,
+          ),
         ),
       ),
     );
@@ -206,6 +243,11 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     widget.onSettingsChanged(settings);
   }
 
+  void _applyDisplaySettings(ChatDisplaySettings settings) {
+    setState(() => _displaySettings = settings);
+    widget.onDisplaySettingsChanged?.call(settings);
+  }
+
   String _otaSummary(ChatOtaSettings settings) {
     return '${settings.channel} · ${settings.autoCheck ? '自动' : '手动'}';
   }
@@ -213,6 +255,34 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   void _showPending(String name) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$name 暂未接入')),
+    );
+  }
+}
+
+class _ColorModePickerSheet extends StatelessWidget {
+  const _ColorModePickerSheet({
+    required this.selected,
+  });
+
+  final ChatColorMode selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ChatColorMode.values.map((mode) {
+            return ListTile(
+              key: Key('color_mode_${mode.name}'),
+              title: Text(mode.label),
+              trailing: selected == mode ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.of(context).pop(mode),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }
