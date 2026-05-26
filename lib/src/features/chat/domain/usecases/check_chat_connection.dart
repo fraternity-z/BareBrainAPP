@@ -7,8 +7,8 @@ class CheckChatConnection {
 
   final ChatRepository _repository;
 
-  Future<void> call(ChatConnectionSettings settings) {
+  Future<void> call(ChatConnectionSettings settings) async {
     final normalizedSettings = ChatConnectionSettingsParser.normalize(settings);
-    return _repository.checkConnection(normalizedSettings);
+    await _repository.checkConnection(normalizedSettings);
   }
 }

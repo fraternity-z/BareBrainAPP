@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import '../../domain/entities/chat_conversation_summary.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../controllers/chat_controller.dart';
+import '../settings/settings_page.dart';
 import '../widgets/message_bubble.dart';
-import '../widgets/settings_sheet.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -54,6 +54,7 @@ class _ChatPageState extends State<ChatPage> {
                       child: SafeArea(
                         child: _Sidebar(
                           controller: widget.controller,
+                          onSettingsPressed: _openSettings,
                           closeAfterAction: true,
                           showBorder: false,
                           width: double.infinity,
@@ -71,6 +72,7 @@ class _ChatPageState extends State<ChatPage> {
                         expanded: desktopSidebarExpanded,
                         child: _Sidebar(
                           controller: widget.controller,
+                          onSettingsPressed: _openSettings,
                         ),
                       ),
                       Expanded(
@@ -104,7 +106,6 @@ class _ChatPageState extends State<ChatPage> {
                                             });
                                           }
                                         : null,
-                                    onSettingsPressed: _openSettings,
                                     onClearPressed: widget.controller.clear,
                                     onMenuPressed: wide
                                         ? null
@@ -187,25 +188,20 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Future<void> _openSettings() async {
-    final settings = await showModalBottomSheet<ChatConnectionSettings>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        return SettingsSheet(
-          settings: widget.controller.settings,
-          onTestConnection: widget.controller.testConnection,
-        );
-      },
+  void _openSettings() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) {
+            return ChatSettingsPage(
+              settings: widget.controller.settings,
+              onSettingsChanged: widget.controller.updateSettings,
+              onTestConnection: widget.controller.testConnection,
+            );
+          },
+        ),
+      ),
     );
-
-    if (settings != null) {
-      if (!mounted) {
-        return;
-      }
-      widget.controller.updateSettings(settings);
-    }
   }
 
   Future<void> _copyMessage(String content) async {
@@ -364,6 +360,7 @@ class _DesktopSidebarTransition extends StatelessWidget {
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.controller,
+    required this.onSettingsPressed,
     this.closeAfterAction = false,
     this.showBorder = true,
     this.width,
@@ -372,6 +369,7 @@ class _Sidebar extends StatelessWidget {
   static const double expandedWidth = 280;
 
   final ChatController controller;
+  final VoidCallback onSettingsPressed;
   final bool closeAfterAction;
   final bool showBorder;
   final double? width;
@@ -431,6 +429,18 @@ class _Sidebar extends StatelessWidget {
           ),
           _SidebarFooter(
             onClearPressed: controller.clear,
+            onSettingsPressed: () {
+              if (closeAfterAction) {
+                unawaited(
+                  Navigator.of(context).maybePop().then((_) {
+                    onSettingsPressed();
+                  }),
+                );
+                return;
+              }
+
+              onSettingsPressed();
+            },
           ),
         ],
       ),
@@ -511,13 +521,14 @@ class _SidebarSearchPill extends StatelessWidget {
 class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter({
     required this.onClearPressed,
+    required this.onSettingsPressed,
   });
 
   final VoidCallback onClearPressed;
+  final VoidCallback onSettingsPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: Row(
@@ -539,9 +550,10 @@ class _SidebarFooter extends StatelessWidget {
             onPressed: onClearPressed,
             icon: const Icon(Icons.delete_outline),
           ),
-          Icon(
-            Icons.settings_outlined,
-            color: colors.onSurface,
+          IconButton(
+            tooltip: '设置',
+            onPressed: onSettingsPressed,
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -885,7 +897,6 @@ Future<void> _showRenameDialog(
 class _Header extends StatelessWidget {
   const _Header({
     required this.settings,
-    required this.onSettingsPressed,
     required this.onClearPressed,
     this.sidebarExpanded,
     this.onSidebarPressed,
@@ -893,7 +904,6 @@ class _Header extends StatelessWidget {
   });
 
   final ChatConnectionSettings settings;
-  final VoidCallback onSettingsPressed;
   final VoidCallback onClearPressed;
   final bool? sidebarExpanded;
   final VoidCallback? onSidebarPressed;
@@ -951,12 +961,6 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              tooltip: '连接设置',
-              onPressed: onSettingsPressed,
-              icon: const Icon(Icons.map_outlined),
-            ),
-            const SizedBox(width: 8),
             IconButton(
               tooltip: '清空会话',
               onPressed: onClearPressed,

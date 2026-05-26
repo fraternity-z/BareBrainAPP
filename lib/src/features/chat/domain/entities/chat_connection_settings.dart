@@ -1,3 +1,5 @@
+import 'chat_ota_settings.dart';
+
 class ChatConnectionSettings {
   const ChatConnectionSettings({
     required this.host,
@@ -5,6 +7,7 @@ class ChatConnectionSettings {
     required this.clientId,
     required this.responseTimeout,
     this.secure = false,
+    this.otaSettings = const ChatOtaSettings(),
   });
 
   final String host;
@@ -12,6 +15,7 @@ class ChatConnectionSettings {
   final String clientId;
   final Duration responseTimeout;
   final bool secure;
+  final ChatOtaSettings otaSettings;
 
   Uri get websocketUri {
     return Uri(
@@ -28,6 +32,7 @@ class ChatConnectionSettings {
     String? clientId,
     Duration? responseTimeout,
     bool? secure,
+    ChatOtaSettings? otaSettings,
   }) {
     return ChatConnectionSettings(
       host: host ?? this.host,
@@ -35,6 +40,7 @@ class ChatConnectionSettings {
       clientId: clientId ?? this.clientId,
       responseTimeout: responseTimeout ?? this.responseTimeout,
       secure: secure ?? this.secure,
+      otaSettings: otaSettings ?? this.otaSettings,
     );
   }
 }

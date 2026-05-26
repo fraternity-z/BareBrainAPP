@@ -103,8 +103,9 @@ class _FakeTextSocketConnection implements TextSocketConnection {
   }
 
   @override
-  Future<void> close() async {
+  Future<void> close() {
     closed = true;
-    await _incoming.close();
+    unawaited(_incoming.close());
+    return Future<void>.value();
   }
 }

@@ -1,5 +1,6 @@
 import '../../../../core/errors/chat_exception.dart';
 import '../../domain/entities/chat_connection_settings.dart';
+import '../../domain/entities/chat_ota_settings.dart';
 
 class ChatConnectionSettingsCodec {
   const ChatConnectionSettingsCodec._();
@@ -11,6 +12,7 @@ class ChatConnectionSettingsCodec {
       'clientId': settings.clientId,
       'responseTimeoutMs': settings.responseTimeout.inMilliseconds,
       'secure': settings.secure,
+      'otaSettings': ChatOtaSettingsCodec.toJson(settings.otaSettings),
     };
   }
 
@@ -20,6 +22,7 @@ class ChatConnectionSettingsCodec {
     final clientId = value['clientId'];
     final responseTimeoutMs = value['responseTimeoutMs'];
     final secure = value['secure'];
+    final otaSettings = value['otaSettings'];
 
     if (host is! String ||
         port is! int ||
@@ -34,6 +37,46 @@ class ChatConnectionSettingsCodec {
       clientId: clientId,
       responseTimeout: Duration(milliseconds: responseTimeoutMs),
       secure: secure is bool ? secure : false,
+      otaSettings: otaSettings is Map<String, dynamic>
+          ? ChatOtaSettingsCodec.fromJson(otaSettings)
+          : const ChatOtaSettings(),
+    );
+  }
+}
+
+class ChatOtaSettingsCodec {
+  const ChatOtaSettingsCodec._();
+
+  static Map<String, dynamic> toJson(ChatOtaSettings settings) {
+    return <String, dynamic>{
+      'versionPath': settings.versionPath,
+      'firmwarePath': settings.firmwarePath,
+      'channel': settings.channel,
+      'requestTimeoutMs': settings.requestTimeout.inMilliseconds,
+      'autoCheck': settings.autoCheck,
+    };
+  }
+
+  static ChatOtaSettings fromJson(Map<String, dynamic> value) {
+    final versionPath = value['versionPath'];
+    final firmwarePath = value['firmwarePath'];
+    final channel = value['channel'];
+    final requestTimeoutMs = value['requestTimeoutMs'];
+    final autoCheck = value['autoCheck'];
+
+    if (versionPath is! String ||
+        firmwarePath is! String ||
+        channel is! String ||
+        requestTimeoutMs is! int) {
+      throw const ChatStorageException('OTA 设置格式错误');
+    }
+
+    return ChatOtaSettings(
+      versionPath: versionPath,
+      firmwarePath: firmwarePath,
+      channel: channel,
+      requestTimeout: Duration(milliseconds: requestTimeoutMs),
+      autoCheck: autoCheck is bool ? autoCheck : false,
     );
   }
 }

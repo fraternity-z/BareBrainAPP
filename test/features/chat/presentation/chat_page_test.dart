@@ -236,6 +236,59 @@ void main() {
 
       controller.dispose();
     });
+
+    testWidgets('opens settings from the desktop sidebar footer',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: controller)),
+      );
+
+      expect(find.byTooltip('连接设置'), findsNothing);
+
+      await tester.tap(find.byTooltip('设置'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('通用设置'), findsOneWidget);
+
+      controller.dispose();
+    });
+
+    testWidgets('opens settings from the mobile drawer footer', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: controller)),
+      );
+
+      await tester.tap(find.byTooltip('会话'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byTooltip('设置'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('通用设置'), findsOneWidget);
+
+      controller.dispose();
+    });
   });
 }
 

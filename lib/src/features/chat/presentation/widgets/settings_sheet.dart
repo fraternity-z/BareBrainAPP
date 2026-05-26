@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/errors/chat_exception.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/services/chat_connection_settings_parser.dart';
+import '../settings/settings_components.dart';
 
 typedef TestChatConnection = Future<void> Function(
   ChatConnectionSettings settings,
@@ -67,101 +68,76 @@ class _SettingsSheetState extends State<SettingsSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      height: 36,
-                      width: 36,
-                      decoration: BoxDecoration(
-                        color: colors.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                Text(
+                  '连接参数',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: settingsPrimaryText,
+                        fontWeight: FontWeight.w800,
                       ),
-                      child: Icon(
-                        Icons.settings_ethernet,
-                        color: colors.onPrimaryContainer,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '连接设置',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ),
-                  ],
                 ),
-                const SizedBox(height: 16),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 20),
+                SettingsFormPanel(
+                  children: <Widget>[
+                    TextField(
+                      key: const Key('connection_host_field'),
+                      controller: _host,
+                      decoration: const InputDecoration(
+                        labelText: '设备 IP',
+                        prefixIcon: Icon(Icons.dns_outlined),
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
                       children: <Widget>[
-                        TextField(
-                          controller: _host,
-                          decoration: const InputDecoration(
-                            labelText: '设备 IP',
-                            prefixIcon: Icon(Icons.dns_outlined),
-                          ),
-                          textInputAction: TextInputAction.next,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _port,
-                                decoration: const InputDecoration(
-                                  labelText: '端口',
-                                  prefixIcon: Icon(Icons.numbers),
-                                ),
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.next,
-                              ),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('connection_port_field'),
+                            controller: _port,
+                            decoration: const InputDecoration(
+                              labelText: '端口',
+                              prefixIcon: Icon(Icons.numbers),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _timeout,
-                                decoration: const InputDecoration(
-                                  labelText: '超时秒数',
-                                  prefixIcon: Icon(Icons.timer_outlined),
-                                ),
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.next,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _clientId,
-                          decoration: const InputDecoration(
-                            labelText: '客户端 ID / chat_id 前缀',
-                            prefixIcon: Icon(Icons.badge_outlined),
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
                           ),
-                          textInputAction: TextInputAction.done,
                         ),
-                        const SizedBox(height: 8),
-                        SwitchListTile(
-                          value: _secure,
-                          onChanged: (value) => setState(() => _secure = value),
-                          secondary: const Icon(Icons.lock_outline),
-                          title: const Text('WSS'),
-                          subtitle: const Text('加密 WebSocket'),
-                          contentPadding: EdgeInsets.zero,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('connection_timeout_field'),
+                            controller: _timeout,
+                            decoration: const InputDecoration(
+                              labelText: '超时秒数',
+                              prefixIcon: Icon(Icons.timer_outlined),
+                            ),
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('connection_client_id_field'),
+                      controller: _clientId,
+                      decoration: const InputDecoration(
+                        labelText: '客户端 ID / chat_id 前缀',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      value: _secure,
+                      onChanged: (value) => setState(() => _secure = value),
+                      secondary: const Icon(Icons.lock_outline),
+                      title: const Text('WSS'),
+                      subtitle: const Text('加密 WebSocket'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
                 ),
                 if (_error != null) ...<Widget>[
                   const SizedBox(height: 10),
@@ -205,6 +181,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
+                        key: const Key('save_connection_settings_button'),
                         onPressed: _isTesting ? null : _save,
                         icon: const Icon(Icons.check),
                         label: const Text('保存'),
@@ -285,7 +262,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
       clientIdInput: _clientId.text,
       timeoutSecondsInput: _timeout.text,
       secure: _secure,
-    );
+    ).copyWith(otaSettings: widget.settings.otaSettings);
   }
 }
 

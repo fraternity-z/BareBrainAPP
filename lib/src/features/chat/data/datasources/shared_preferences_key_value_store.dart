@@ -12,12 +12,12 @@ class SharedPreferencesKeyValueStore implements KeyValueStore {
     ReadString? readString,
     WriteString? writeString,
     RemoveString? removeString,
-  })  : _preferences = preferences ?? SharedPreferencesAsync(),
+  })  : _preferences = preferences,
         _readString = readString,
         _writeString = writeString,
         _removeString = removeString;
 
-  final SharedPreferencesAsync _preferences;
+  SharedPreferencesAsync? _preferences;
   final ReadString? _readString;
   final WriteString? _writeString;
   final RemoveString? _removeString;
@@ -29,7 +29,7 @@ class SharedPreferencesKeyValueStore implements KeyValueStore {
       return readString(key);
     }
 
-    return _preferences.getString(key);
+    return _resolvedPreferences.getString(key);
   }
 
   @override
@@ -39,7 +39,7 @@ class SharedPreferencesKeyValueStore implements KeyValueStore {
       return writeString(key, value);
     }
 
-    return _preferences.setString(key, value);
+    return _resolvedPreferences.setString(key, value);
   }
 
   @override
@@ -49,6 +49,10 @@ class SharedPreferencesKeyValueStore implements KeyValueStore {
       return removeString(key);
     }
 
-    return _preferences.remove(key);
+    return _resolvedPreferences.remove(key);
+  }
+
+  SharedPreferencesAsync get _resolvedPreferences {
+    return _preferences ??= SharedPreferencesAsync();
   }
 }
