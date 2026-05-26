@@ -10,9 +10,7 @@ class QuickPhrasesPage extends StatefulWidget {
 }
 
 class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
-  final List<QuickPhrase> _phrases = <QuickPhrase>[
-    const QuickPhrase(title: 'ejej', content: '哎啊啊快啊'),
-  ];
+  final List<QuickPhrase> _phrases = <QuickPhrase>[];
 
   @override
   Widget build(BuildContext context) {

@@ -6,6 +6,7 @@ import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_ota_settings.dart';
 import '../widgets/settings_sheet.dart';
 import 'display_settings_page.dart';
+import 'network_proxy_page.dart';
 import 'ota_settings_sheet.dart';
 import 'quick_phrases_page.dart';
 import 'settings_components.dart';
@@ -86,9 +87,10 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 onTap: () => _showPending('指令注入'),
               ),
               SettingsRow(
-                icon: Icons.chat_bubble_outline,
+                key: const Key('settings_row_network_proxy'),
+                icon: Icons.public_outlined,
                 title: '网络代理',
-                onTap: () => _showPending('网络代理'),
+                onTap: _openNetworkProxy,
               ),
             ],
           ),
@@ -184,6 +186,16 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (context) => const QuickPhrasesPage(),
+        ),
+      ),
+    );
+  }
+
+  void _openNetworkProxy() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => const NetworkProxyPage(),
         ),
       ),
     );
