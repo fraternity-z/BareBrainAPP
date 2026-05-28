@@ -2,6 +2,7 @@ import 'package:bare_brain_app/src/features/chat/chat_feature_module.dart';
 import 'package:bare_brain_app/src/features/chat/data/datasources/chat_transport.dart';
 import 'package:bare_brain_app/src/features/chat/data/datasources/key_value_store.dart';
 import 'package:bare_brain_app/src/features/chat/data/models/bare_brain_ws_payload.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_app_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_display_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +71,34 @@ void main() {
 
       expect(restored.settings.colorMode, ChatColorMode.dark);
       expect(restored.settings.themePreset, ChatThemePreset.graphite);
+
+      controller.dispose();
+      restored.dispose();
+    });
+
+    test('wires app settings to persistent key value storage', () async {
+      final keyValueStore = MemoryKeyValueStore();
+      final controller = ChatFeatureModule.createAppSettingsController(
+        keyValueStore: keyValueStore,
+      );
+
+      controller.updateQuickPhrases(
+        const <ChatQuickPhrase>[
+          ChatQuickPhrase(
+            id: 'phrase-1',
+            title: '开场白',
+            content: '你好',
+          ),
+        ],
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final restored = ChatFeatureModule.createAppSettingsController(
+        keyValueStore: keyValueStore,
+      );
+      await restored.restore();
+
+      expect(restored.settings.quickPhrases.single.content, '你好');
 
       controller.dispose();
       restored.dispose();

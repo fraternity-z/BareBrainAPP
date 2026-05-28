@@ -39,5 +39,33 @@ void main() {
       );
       expect(find.text('连接成功'), findsOneWidget);
     });
+
+    testWidgets('clears connection test feedback when form changes',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SettingsSheet(
+              settings: settings,
+              onTestConnection: (_) async {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('测试连接'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('连接成功'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('connection_host_field')),
+        '10.0.0.2',
+      );
+      await tester.pump();
+
+      expect(find.text('连接成功'), findsNothing);
+    });
   });
 }

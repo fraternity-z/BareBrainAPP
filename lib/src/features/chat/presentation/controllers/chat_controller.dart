@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/errors/chat_exception.dart';
+import '../../domain/entities/chat_app_settings.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_conversation_catalog.dart';
 import '../../domain/entities/chat_conversation_summary.dart';
@@ -10,6 +11,7 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_session_snapshot.dart';
 import '../../domain/repositories/chat_conversation_catalog_store.dart';
 import '../../domain/repositories/chat_session_store.dart';
+import '../../domain/repositories/chat_voice_output.dart';
 import '../../domain/services/chat_conversation_title_builder.dart';
 import '../../domain/services/chat_connection_settings_parser.dart';
 import '../../domain/services/chat_route_id_builder.dart';
@@ -24,6 +26,9 @@ class ChatController extends ChangeNotifier {
     ChatSessionStore? sessionStore,
     ChatSessionStoreFactory? sessionStoreFactory,
     ChatConversationCatalogStore? catalogStore,
+    ChatStorageSettings storageSettings = const ChatStorageSettings(),
+    ChatVoiceSettings voiceSettings = const ChatVoiceSettings(),
+    ChatVoiceOutput? voiceOutput,
     String conversationId = 'default',
     String conversationTitle = 'BareBrain',
   })  : _sendChatMessage = sendChatMessage,
@@ -34,6 +39,9 @@ class ChatController extends ChangeNotifier {
         _sessionStore = sessionStoreFactory?.forConversation(conversationId) ??
             sessionStore,
         _catalogStore = catalogStore,
+        _storageSettings = storageSettings,
+        _voiceSettings = voiceSettings,
+        _voiceOutput = voiceOutput,
         _conversationId = conversationId,
         _conversationTitle = conversationTitle;
 
@@ -43,6 +51,9 @@ class ChatController extends ChangeNotifier {
   final ChatSessionStoreFactory? _sessionStoreFactory;
   final ChatSessionStore? _sessionStore;
   final ChatConversationCatalogStore? _catalogStore;
+  ChatStorageSettings _storageSettings;
+  ChatVoiceSettings _voiceSettings;
+  final ChatVoiceOutput? _voiceOutput;
   String _conversationId;
   String _conversationTitle;
   ChatConnectionSettings _settings;
@@ -62,6 +73,11 @@ class ChatController extends ChangeNotifier {
   String get conversationId => _conversationId;
   bool get canRetryLastMessage {
     return !_isSending && _lastRetryableUserMessageIndex() != null;
+  }
+
+  String? get lastRetryableUserMessageContent {
+    final index = _lastRetryableUserMessageIndex();
+    return index == null ? null : _messages[index].content;
   }
 
   String get bareBrainChatId {
@@ -104,6 +120,41 @@ class ChatController extends ChangeNotifier {
     }
 
     await checkConnection(settings);
+  }
+
+  void reportError(String message) {
+    _errorMessage = message;
+    _notify();
+  }
+
+  void clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+    _notify();
+  }
+
+  void updateStorageSettings(
+    ChatStorageSettings settings, {
+    bool persistImmediately = true,
+  }) {
+    if (settings == _storageSettings) {
+      return;
+    }
+
+    _storageSettings = settings;
+    if (!persistImmediately || !settings.autoSaveConversations) {
+      return;
+    }
+
+    unawaited(_saveSnapshot());
+    unawaited(_saveCatalogSummary());
+  }
+
+  void updateVoiceSettings(ChatVoiceSettings settings) {
+    _voiceSettings = settings;
   }
 
   Future<void> createConversation({String? title}) async {
@@ -234,7 +285,7 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> send(String content) async {
+  Future<void> send(String content, {String? transportContent}) async {
     if (_isSending) {
       return;
     }
@@ -246,7 +297,10 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
-    await _sendNormalized(normalized);
+    await _sendNormalized(
+      normalized,
+      transportContent: transportContent?.trim(),
+    );
   }
 
   void updateDraft(String draft) {
@@ -258,7 +312,7 @@ class ChatController extends ChangeNotifier {
     unawaited(_saveSnapshot());
   }
 
-  Future<void> retryLastUserMessage() async {
+  Future<void> retryLastUserMessage({String? transportContent}) async {
     if (_isSending) {
       return;
     }
@@ -278,12 +332,17 @@ class ChatController extends ChangeNotifier {
     }
 
     _messages.removeRange(retryIndex + 1, _messages.length);
-    await _sendNormalized(content, existingUserMessageIndex: retryIndex);
+    await _sendNormalized(
+      content,
+      existingUserMessageIndex: retryIndex,
+      transportContent: transportContent?.trim(),
+    );
   }
 
   Future<void> _sendNormalized(
     String normalized, {
     int? existingUserMessageIndex,
+    String? transportContent,
   }) async {
     final shouldAutoTitle = existingUserMessageIndex == null &&
         _messages.isEmpty &&
@@ -316,7 +375,7 @@ class ChatController extends ChangeNotifier {
 
     try {
       final response = await _sendChatMessage(
-        normalized,
+        transportContent?.isNotEmpty == true ? transportContent! : normalized,
         _settings,
         chatId: bareBrainChatId,
       );
@@ -333,6 +392,7 @@ class ChatController extends ChangeNotifier {
       );
       await _saveSnapshot();
       await _saveCatalogSummary();
+      unawaited(_speakAssistantResponse(response));
     } on ChatException catch (error) {
       _errorMessage = error.message;
       _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
@@ -384,6 +444,10 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _saveSnapshot() async {
+    if (!_storageSettings.autoSaveConversations) {
+      return;
+    }
+
     final store = _currentSessionStore();
     if (store == null) {
       return;
@@ -394,7 +458,7 @@ class ChatController extends ChangeNotifier {
         ChatSessionSnapshot(
           settings: _settings,
           messages: List<ChatMessage>.unmodifiable(_messages),
-          draft: _draft,
+          draft: _storageSettings.saveDrafts ? _draft : '',
         ),
       );
     } catch (error) {
@@ -413,15 +477,20 @@ class ChatController extends ChangeNotifier {
         lastMessagePreview: _lastMessagePreview(),
       );
       final store = _catalogStore;
-      final current = store == null ? null : await store.load();
+      final shouldPersist = _storageSettings.autoSaveConversations;
+      final current =
+          store == null || !shouldPersist ? null : await store.load();
       final catalog = current ??
           ChatConversationCatalog(
             activeConversationId: _conversationId,
             conversations: _conversations,
           );
-      final next = catalog.upsertActive(summary);
+      final next = _applyStoragePolicy(catalog.upsertActive(summary));
       _conversations = next.conversations;
-      await store?.save(next);
+      if (shouldPersist) {
+        await _clearPrunedConversationSnapshots(catalog, next);
+        await store?.save(next);
+      }
     } catch (error) {
       _errorMessage = '保存会话目录失败：$error';
     }
@@ -464,7 +533,7 @@ class ChatController extends ChangeNotifier {
     }
 
     _settings = snapshot.settings;
-    _draft = snapshot.draft;
+    _draft = _storageSettings.saveDrafts ? snapshot.draft : '';
     _messages
       ..clear()
       ..addAll(
@@ -551,6 +620,97 @@ class ChatController extends ChangeNotifier {
     }
 
     return '${normalized.substring(0, 80)}...';
+  }
+
+  ChatConversationCatalog _applyStoragePolicy(
+    ChatConversationCatalog catalog,
+  ) {
+    final retentionCutoff = _retentionCutoff();
+    final filtered = catalog.conversations.where((conversation) {
+      if (conversation.id == catalog.activeConversationId) {
+        return true;
+      }
+
+      return retentionCutoff == null ||
+          conversation.updatedAt.isAfter(retentionCutoff);
+    }).toList(growable: false);
+
+    final limited = filtered
+        .take(_storageSettings.maxLocalConversations)
+        .toList(growable: false);
+    ChatConversationSummary? activeConversation;
+    for (final conversation in filtered) {
+      if (conversation.id == catalog.activeConversationId) {
+        activeConversation = conversation;
+        break;
+      }
+    }
+    if (activeConversation != null) {
+      final activeConversationId = activeConversation.id;
+      final hasActiveConversation = limited.any((conversation) {
+        return conversation.id == activeConversationId;
+      });
+      if (!hasActiveConversation) {
+        if (limited.length >= _storageSettings.maxLocalConversations) {
+          limited.removeLast();
+        }
+        limited.add(activeConversation);
+      }
+    }
+
+    return ChatConversationCatalog(
+      activeConversationId: catalog.activeConversationId,
+      conversations: List<ChatConversationSummary>.unmodifiable(limited),
+    );
+  }
+
+  Future<void> _clearPrunedConversationSnapshots(
+    ChatConversationCatalog previous,
+    ChatConversationCatalog next,
+  ) async {
+    final remainingIds = next.conversations.map((conversation) {
+      return conversation.id;
+    }).toSet();
+
+    for (final conversation in previous.conversations) {
+      if (remainingIds.contains(conversation.id) ||
+          conversation.id == _conversationId) {
+        continue;
+      }
+
+      await _sessionStoreFactory?.forConversation(conversation.id).clear();
+    }
+  }
+
+  DateTime? _retentionCutoff() {
+    return switch (_storageSettings.retentionPolicy) {
+      ChatStorageRetentionPolicy.forever => null,
+      ChatStorageRetentionPolicy.thirtyDays =>
+        DateTime.now().subtract(const Duration(days: 30)),
+      ChatStorageRetentionPolicy.ninetyDays =>
+        DateTime.now().subtract(const Duration(days: 90)),
+    };
+  }
+
+  Future<void> _speakAssistantResponse(String response) async {
+    final voiceOutput = _voiceOutput;
+    if (voiceOutput == null ||
+        !_voiceSettings.enabled ||
+        response.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      await voiceOutput.speak(response, _voiceSettings);
+    } on ChatException catch (error) {
+      _errorMessage = error.message.startsWith('语音服务')
+          ? error.message
+          : '语音服务失败：${error.message}';
+      _notify();
+    } catch (error) {
+      _errorMessage = '语音服务失败：$error';
+      _notify();
+    }
   }
 
   void _notify() {

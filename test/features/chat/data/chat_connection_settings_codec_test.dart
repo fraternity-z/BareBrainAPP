@@ -55,6 +55,30 @@ void main() {
       expect(restored.otaSettings.autoCheck, isFalse);
     });
 
+    test('restores partial OTA settings with per-field defaults', () {
+      final restored = ChatConnectionSettingsCodec.fromJson(
+        <String, dynamic>{
+          'host': ' 192.168.1.10 ',
+          'port': 18789,
+          'clientId': ' barebrain_app ',
+          'responseTimeoutMs': 90000,
+          'secure': false,
+          'otaSettings': <String, dynamic>{
+            'channel': 'beta',
+            'autoCheck': true,
+          },
+        },
+      );
+
+      expect(restored.host, '192.168.1.10');
+      expect(restored.clientId, 'barebrain_app');
+      expect(restored.otaSettings.versionPath, '/ota/version');
+      expect(restored.otaSettings.firmwarePath, '/ota/firmware');
+      expect(restored.otaSettings.channel, 'beta');
+      expect(restored.otaSettings.requestTimeout, const Duration(seconds: 120));
+      expect(restored.otaSettings.autoCheck, isTrue);
+    });
+
     test('rejects malformed settings', () {
       expect(
         () => ChatConnectionSettingsCodec.fromJson(<String, dynamic>{

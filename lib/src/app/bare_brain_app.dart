@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../features/chat/chat_feature_module.dart';
 import '../features/chat/domain/entities/chat_display_settings.dart';
+import '../features/chat/presentation/controllers/chat_app_settings_controller.dart';
 import '../features/chat/presentation/controllers/chat_controller.dart';
 import '../features/chat/presentation/controllers/chat_display_settings_controller.dart';
 import '../features/chat/presentation/pages/chat_page.dart';
@@ -20,23 +21,33 @@ class BareBrainApp extends StatefulWidget {
 class _BareBrainAppState extends State<BareBrainApp> {
   late final ChatController _controller;
   late final ChatDisplaySettingsController _displaySettingsController;
+  late final ChatAppSettingsController _appSettingsController;
+  bool _isRestoringControllers = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    _appSettingsController = ChatFeatureModule.createAppSettingsController();
     _controller = ChatFeatureModule.createController(
       initialSettings: AppConfig.defaultChatSettings(),
+      networkProxySettingsProvider: () {
+        return _appSettingsController.settings.networkProxy;
+      },
     );
     _displaySettingsController =
         ChatFeatureModule.createDisplaySettingsController();
-    unawaited(_controller.restore());
-    unawaited(_displaySettingsController.restore());
+    _appSettingsController.addListener(_syncAppSettings);
+    unawaited(_restoreControllers());
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _appSettingsController.removeListener(_syncAppSettings);
     _controller.dispose();
     _displaySettingsController.dispose();
+    _appSettingsController.dispose();
     super.dispose();
   }
 
@@ -55,7 +66,28 @@ class _BareBrainAppState extends State<BareBrainApp> {
           home: ChatPage(
             controller: _controller,
             displaySettings: displaySettings,
+            displaySettingsController: _displaySettingsController,
+            displaySettingsError: _displaySettingsController.errorMessage,
             onDisplaySettingsChanged: _displaySettingsController.update,
+            appSettingsController: _appSettingsController,
+            onTestNetworkProxyConnection:
+                ChatFeatureModule.testNetworkProxyConnection,
+            onTestVoiceService: (settings) {
+              return ChatFeatureModule.testVoiceService(
+                settings,
+                networkProxySettingsProvider: () {
+                  return _appSettingsController.settings.networkProxy;
+                },
+              );
+            },
+            onTestOtaVersionCheck: (settings) {
+              return ChatFeatureModule.testOtaVersionCheck(
+                settings,
+                networkProxySettingsProvider: () {
+                  return _appSettingsController.settings.networkProxy;
+                },
+              );
+            },
           ),
         );
       },
@@ -68,5 +100,56 @@ class _BareBrainAppState extends State<BareBrainApp> {
       ChatColorMode.light => ThemeMode.light,
       ChatColorMode.dark => ThemeMode.dark,
     };
+  }
+
+  Future<void> _restoreControllers() async {
+    _isRestoringControllers = true;
+    try {
+      await Future.wait(<Future<void>>[
+        _displaySettingsController.restore(),
+        _appSettingsController.restore(),
+      ]);
+      _syncAppSettings(persistStorage: false);
+      await _controller.restore();
+    } finally {
+      _isRestoringControllers = false;
+    }
+    unawaited(_autoCheckOta());
+  }
+
+  void _syncAppSettings({bool? persistStorage}) {
+    final settings = _appSettingsController.settings;
+    final shouldPersistStorage = persistStorage ?? !_isRestoringControllers;
+    _controller
+      ..updateStorageSettings(
+        settings.storage,
+        persistImmediately: shouldPersistStorage,
+      )
+      ..updateVoiceSettings(settings.voice);
+  }
+
+  Future<void> _autoCheckOta() async {
+    if (_isDisposed) {
+      return;
+    }
+
+    final settings = _controller.settings;
+    if (!settings.otaSettings.autoCheck) {
+      return;
+    }
+
+    try {
+      await ChatFeatureModule.testOtaVersionCheck(
+        settings,
+        networkProxySettingsProvider: () {
+          return _appSettingsController.settings.networkProxy;
+        },
+      );
+    } catch (error) {
+      if (_isDisposed) {
+        return;
+      }
+      _controller.reportError('OTA 自动检查失败：$error');
+    }
   }
 }

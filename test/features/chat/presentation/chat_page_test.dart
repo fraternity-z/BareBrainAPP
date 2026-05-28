@@ -1,9 +1,12 @@
+import 'package:bare_brain_app/src/core/errors/chat_exception.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_app_settings.dart';
 import 'package:bare_brain_app/src/features/chat/data/repositories/memory_chat_session_store.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_display_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_session_snapshot.dart';
 import 'package:bare_brain_app/src/features/chat/domain/repositories/chat_repository.dart';
 import 'package:bare_brain_app/src/features/chat/domain/usecases/send_chat_message.dart';
+import 'package:bare_brain_app/src/features/chat/presentation/controllers/chat_app_settings_controller.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/pages/chat_page.dart';
 import 'package:flutter/material.dart';
@@ -347,6 +350,193 @@ void main() {
 
       controller.dispose();
     });
+
+    testWidgets('inserts enabled quick phrases into the composer',
+        (tester) async {
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+      final appSettingsController = ChatAppSettingsController(
+        initialSettings: const ChatAppSettings(
+          quickPhrases: <ChatQuickPhrase>[
+            ChatQuickPhrase(
+              id: 'phrase-1',
+              title: '开场白',
+              content: '你好，开始检查状态。',
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            appSettingsController: appSettingsController,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('快捷短语'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.byKey(const Key('quick_phrase_picker_phrase-1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(_composerText(tester), '你好，开始检查状态。');
+      expect(controller.draft, '你好，开始检查状态。');
+
+      controller.dispose();
+      appSettingsController.dispose();
+    });
+
+    testWidgets('syncs storage settings before saving composer drafts',
+        (tester) async {
+      final store = MemoryChatSessionStore();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+        sessionStore: store,
+      );
+      final appSettingsController = ChatAppSettingsController(
+        initialSettings: const ChatAppSettings(
+          storage: ChatStorageSettings(saveDrafts: false),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            appSettingsController: appSettingsController,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'half typed');
+      await tester.pump();
+      await Future<void>.delayed(Duration.zero);
+
+      final snapshot = await store.load();
+
+      expect(controller.draft, 'half typed');
+      expect(snapshot, isNotNull);
+      expect(snapshot!.draft, isEmpty);
+
+      controller.dispose();
+      appSettingsController.dispose();
+    });
+
+    testWidgets('sends world book and prompt injection as transport content',
+        (tester) async {
+      final repository = _FakeRepository();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(repository),
+        initialSettings: settings,
+      );
+      final appSettingsController = ChatAppSettingsController(
+        initialSettings: const ChatAppSettings(
+          worldBook: ChatWorldBookSettings(
+            entries: <ChatWorldBookEntry>[
+              ChatWorldBookEntry(
+                id: 'world-1',
+                title: '实验室',
+                content: '设备位于实验室。',
+                keywords: <String>['实验室'],
+              ),
+            ],
+          ),
+          promptInjection: ChatPromptInjectionSettings(
+            rules: <ChatPromptInjectionRule>[
+              ChatPromptInjectionRule(
+                id: 'prompt-1',
+                title: '风格',
+                content: '保持简洁。',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            appSettingsController: appSettingsController,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '检查实验室状态');
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pumpAndSettle();
+
+      expect(repository.contents.single, contains('[世界书：实验室]'));
+      expect(repository.contents.single, contains('[系统指令：风格]'));
+      expect(repository.contents.single, contains('检查实验室状态'));
+      expect(controller.messages.first.content, '检查实验室状态');
+
+      controller.dispose();
+      appSettingsController.dispose();
+    });
+
+    testWidgets('retries with world book and prompt injection content',
+        (tester) async {
+      final repository = _RetryRepository();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(repository),
+        initialSettings: settings,
+      );
+      final appSettingsController = ChatAppSettingsController(
+        initialSettings: const ChatAppSettings(
+          worldBook: ChatWorldBookSettings(
+            entries: <ChatWorldBookEntry>[
+              ChatWorldBookEntry(
+                id: 'world-1',
+                title: '实验室',
+                content: '设备位于实验室。',
+                keywords: <String>['实验室'],
+              ),
+            ],
+          ),
+          promptInjection: ChatPromptInjectionSettings(
+            rules: <ChatPromptInjectionRule>[
+              ChatPromptInjectionRule(
+                id: 'prompt-1',
+                title: '风格',
+                content: '保持简洁。',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: controller,
+            appSettingsController: appSettingsController,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '检查实验室状态');
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(repository.contents, hasLength(2));
+      expect(repository.contents.last, contains('[世界书：实验室]'));
+      expect(repository.contents.last, contains('[系统指令：风格]'));
+      expect(repository.contents.last, contains('检查实验室状态'));
+      expect(controller.messages.first.content, '检查实验室状态');
+
+      controller.dispose();
+      appSettingsController.dispose();
+    });
   });
 }
 
@@ -356,6 +546,8 @@ String _composerText(WidgetTester tester) {
 }
 
 class _FakeRepository implements ChatRepository {
+  final List<String> contents = <String>[];
+
   @override
   Future<void> checkConnection(ChatConnectionSettings settings) async {}
 
@@ -365,6 +557,28 @@ class _FakeRepository implements ChatRepository {
     ChatConnectionSettings settings, {
     required String chatId,
   }) async {
+    contents.add(content);
+    return 'pong';
+  }
+}
+
+class _RetryRepository implements ChatRepository {
+  final List<String> contents = <String>[];
+
+  @override
+  Future<void> checkConnection(ChatConnectionSettings settings) async {}
+
+  @override
+  Future<String> sendMessage(
+    String content,
+    ChatConnectionSettings settings, {
+    required String chatId,
+  }) async {
+    contents.add(content);
+    if (contents.length == 1) {
+      throw const ChatConnectionException('offline');
+    }
+
     return 'pong';
   }
 }

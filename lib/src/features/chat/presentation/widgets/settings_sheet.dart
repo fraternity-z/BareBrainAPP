@@ -87,6 +87,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
                         prefixIcon: Icon(Icons.dns_outlined),
                       ),
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) => _clearFeedback(),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -101,6 +102,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
                             ),
                             keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.next,
+                            onChanged: (_) => _clearFeedback(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -114,6 +116,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
                             ),
                             keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.next,
+                            onChanged: (_) => _clearFeedback(),
                           ),
                         ),
                       ],
@@ -127,11 +130,18 @@ class _SettingsSheetState extends State<SettingsSheet> {
                         prefixIcon: Icon(Icons.badge_outlined),
                       ),
                       textInputAction: TextInputAction.done,
+                      onChanged: (_) => _clearFeedback(),
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile(
                       value: _secure,
-                      onChanged: (value) => setState(() => _secure = value),
+                      onChanged: (value) {
+                        setState(() {
+                          _secure = value;
+                          _error = null;
+                          _status = null;
+                        });
+                      },
                       secondary: const Icon(Icons.lock_outline),
                       title: const Text('WSS'),
                       subtitle: const Text('加密 WebSocket'),
@@ -207,6 +217,17 @@ class _SettingsSheetState extends State<SettingsSheet> {
         _error = error.message;
       });
     }
+  }
+
+  void _clearFeedback() {
+    if (_error == null && _status == null) {
+      return;
+    }
+
+    setState(() {
+      _error = null;
+      _status = null;
+    });
   }
 
   Future<void> _testConnection() async {

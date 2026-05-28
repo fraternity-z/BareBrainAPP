@@ -28,4 +28,26 @@ class ChatOtaSettings {
       autoCheck: autoCheck ?? this.autoCheck,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is ChatOtaSettings &&
+            other.versionPath == versionPath &&
+            other.firmwarePath == firmwarePath &&
+            other.channel == channel &&
+            other.requestTimeout == requestTimeout &&
+            other.autoCheck == autoCheck;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      versionPath,
+      firmwarePath,
+      channel,
+      requestTimeout,
+      autoCheck,
+    );
+  }
 }

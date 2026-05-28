@@ -3,10 +3,12 @@ import 'package:bare_brain_app/src/features/chat/data/datasources/key_value_stor
 import 'package:bare_brain_app/src/features/chat/data/repositories/key_value_chat_conversation_catalog_store.dart';
 import 'package:bare_brain_app/src/features/chat/data/repositories/key_value_chat_session_store.dart';
 import 'package:bare_brain_app/src/features/chat/data/repositories/memory_chat_session_store.dart';
+import 'package:bare_brain_app/src/features/chat/domain/entities/chat_app_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_connection_settings.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_message.dart';
 import 'package:bare_brain_app/src/features/chat/domain/entities/chat_session_snapshot.dart';
 import 'package:bare_brain_app/src/features/chat/domain/repositories/chat_repository.dart';
+import 'package:bare_brain_app/src/features/chat/domain/repositories/chat_voice_output.dart';
 import 'package:bare_brain_app/src/features/chat/domain/services/chat_route_id_builder.dart';
 import 'package:bare_brain_app/src/features/chat/domain/usecases/send_chat_message.dart';
 import 'package:bare_brain_app/src/features/chat/presentation/controllers/chat_controller.dart';
@@ -36,6 +38,39 @@ void main() {
       expect(controller.isSending, isFalse);
     });
 
+    test('can send augmented transport content while storing user text',
+        () async {
+      final repository = _FakeRepository(response: 'pong');
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(repository),
+        initialSettings: settings,
+      );
+
+      await controller.send('ping', transportContent: 'system\n\nping');
+
+      expect(repository.contents.single, 'system\n\nping');
+      expect(controller.messages.first.content, 'ping');
+    });
+
+    test('sends assistant responses to enabled voice output', () async {
+      final voiceOutput = _FakeVoiceOutput();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        voiceSettings: const ChatVoiceSettings(
+          enabled: true,
+          endpoint: 'https://voice.example.com',
+        ),
+        voiceOutput: voiceOutput,
+      );
+
+      await controller.send('ping');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(voiceOutput.contents, <String>['pong']);
+      expect(voiceOutput.settings.single.endpoint, 'https://voice.example.com');
+    });
+
     test('records a system message when send fails', () async {
       final controller = ChatController(
         sendChatMessage: SendChatMessage(
@@ -49,6 +84,21 @@ void main() {
       expect(controller.errorMessage, 'offline');
       expect(controller.messages.last.author, ChatMessageAuthor.system);
       expect(controller.messages.last.error, 'offline');
+    });
+
+    test('reports and clears external setting-related errors', () {
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+      );
+
+      controller.reportError('OTA 自动检查失败：offline');
+
+      expect(controller.errorMessage, 'OTA 自动检查失败：offline');
+
+      controller.clearError();
+
+      expect(controller.errorMessage, isNull);
     });
 
     test('retries the last failed user message without duplicating it',
@@ -80,6 +130,25 @@ void main() {
       expect(controller.messages.last.author, ChatMessageAuthor.assistant);
       expect(controller.messages.last.content, 'pong');
       expect(repository.contents, <String>['ping', 'ping']);
+    });
+
+    test('can retry with augmented transport content', () async {
+      final repository = _RetryRepository();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(repository),
+        initialSettings: settings,
+      );
+
+      await controller.send('ping');
+
+      expect(controller.lastRetryableUserMessageContent, 'ping');
+
+      await controller.retryLastUserMessage(
+        transportContent: 'system\n\nping',
+      );
+
+      expect(repository.contents, <String>['ping', 'system\n\nping']);
+      expect(controller.messages.first.content, 'ping');
     });
 
     test('restores messages and settings from session store', () async {
@@ -142,6 +211,146 @@ void main() {
       await controller.selectConversation(secondId);
 
       expect(controller.draft, 'second draft');
+    });
+
+    test('respects storage settings when saving snapshots', () async {
+      final store = MemoryChatSessionStore();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        sessionStore: store,
+        storageSettings: const ChatStorageSettings(saveDrafts: false),
+      );
+
+      controller.updateDraft('unfinished');
+      await Future<void>.delayed(Duration.zero);
+
+      var snapshot = await store.load();
+      expect(snapshot!.draft, isEmpty);
+
+      controller.updateStorageSettings(
+        const ChatStorageSettings(autoSaveConversations: false),
+      );
+      await controller.send('ping');
+
+      snapshot = await store.load();
+      expect(snapshot!.messages, isEmpty);
+    });
+
+    test('rewrites current snapshot when storage settings change', () async {
+      final store = MemoryChatSessionStore();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        sessionStore: store,
+      );
+
+      controller.updateDraft('unfinished');
+      await Future<void>.delayed(Duration.zero);
+
+      var snapshot = await store.load();
+      expect(snapshot!.draft, 'unfinished');
+
+      controller.updateStorageSettings(
+        const ChatStorageSettings(saveDrafts: false),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      snapshot = await store.load();
+      expect(snapshot!.draft, isEmpty);
+    });
+
+    test('can sync storage settings without persisting immediately', () async {
+      final store = MemoryChatSessionStore();
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        sessionStore: store,
+      );
+
+      controller.updateDraft('unfinished');
+      await Future<void>.delayed(Duration.zero);
+
+      var snapshot = await store.load();
+      expect(snapshot!.draft, 'unfinished');
+
+      controller.updateStorageSettings(
+        const ChatStorageSettings(saveDrafts: false),
+        persistImmediately: false,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      snapshot = await store.load();
+      expect(snapshot!.draft, 'unfinished');
+    });
+
+    test('clears pruned conversation snapshots when storage limit is reached',
+        () async {
+      final keyValueStore = MemoryKeyValueStore();
+      final sessionStoreFactory = KeyValueChatSessionStoreFactory(
+        keyValueStore: keyValueStore,
+      );
+      final catalogStore = KeyValueChatConversationCatalogStore(
+        keyValueStore: keyValueStore,
+      );
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        sessionStoreFactory: sessionStoreFactory,
+        catalogStore: catalogStore,
+        storageSettings: const ChatStorageSettings(maxLocalConversations: 1),
+      );
+
+      await controller.send('first');
+      await controller.createConversation(title: 'Second');
+      await controller.send('second');
+
+      expect(
+          await sessionStoreFactory.forConversation('default').load(), isNull);
+      expect(controller.conversations, hasLength(1));
+      expect(controller.conversations.single.title, 'Second');
+    });
+
+    test('keeps the active conversation when applying the storage limit',
+        () async {
+      final keyValueStore = MemoryKeyValueStore();
+      final sessionStoreFactory = KeyValueChatSessionStoreFactory(
+        keyValueStore: keyValueStore,
+      );
+      final catalogStore = KeyValueChatConversationCatalogStore(
+        keyValueStore: keyValueStore,
+      );
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository(response: 'pong')),
+        initialSettings: settings,
+        sessionStoreFactory: sessionStoreFactory,
+        catalogStore: catalogStore,
+        storageSettings: const ChatStorageSettings(maxLocalConversations: 2),
+      );
+
+      await controller.send('first');
+      await controller.createConversation(title: 'Second');
+      final secondId = controller.conversationId;
+      await controller.send('second');
+      await controller.selectConversation('default');
+
+      controller.updateStorageSettings(
+        const ChatStorageSettings(maxLocalConversations: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final catalog = await catalogStore.load();
+      final defaultSnapshot =
+          await sessionStoreFactory.forConversation('default').load();
+      final secondSnapshot =
+          await sessionStoreFactory.forConversation(secondId).load();
+
+      expect(catalog, isNotNull);
+      expect(catalog!.activeConversationId, 'default');
+      expect(catalog.conversations, hasLength(1));
+      expect(catalog.conversations.single.id, 'default');
+      expect(defaultSnapshot, isNotNull);
+      expect(secondSnapshot, isNull);
     });
 
     test('clears draft after sending', () async {
@@ -406,6 +615,7 @@ class _FakeRepository implements ChatRepository {
   final String? response;
   final ChatException? error;
   final List<String> chatIds = <String>[];
+  final List<String> contents = <String>[];
 
   @override
   Future<void> checkConnection(ChatConnectionSettings settings) async {}
@@ -416,6 +626,7 @@ class _FakeRepository implements ChatRepository {
     ChatConnectionSettings settings, {
     required String chatId,
   }) async {
+    contents.add(content);
     chatIds.add(chatId);
     if (error != null) {
       throw error!;
@@ -442,5 +653,16 @@ class _RetryRepository implements ChatRepository {
     }
 
     return 'pong';
+  }
+}
+
+class _FakeVoiceOutput implements ChatVoiceOutput {
+  final List<String> contents = <String>[];
+  final List<ChatVoiceSettings> settings = <ChatVoiceSettings>[];
+
+  @override
+  Future<void> speak(String content, ChatVoiceSettings settings) async {
+    contents.add(content);
+    this.settings.add(settings);
   }
 }

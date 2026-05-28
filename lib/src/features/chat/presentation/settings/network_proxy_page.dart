@@ -1,45 +1,70 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/chat_app_settings.dart';
 import 'settings_components.dart';
 
+typedef TestNetworkProxyConnection = Future<void> Function(
+  ChatNetworkProxySettings settings,
+);
+
 class NetworkProxyPage extends StatefulWidget {
-  const NetworkProxyPage({super.key});
+  const NetworkProxyPage({
+    this.settings = const ChatNetworkProxySettings(),
+    this.onChanged,
+    this.onTestConnection,
+    super.key,
+  });
+
+  final ChatNetworkProxySettings settings;
+  final ValueChanged<ChatNetworkProxySettings>? onChanged;
+  final TestNetworkProxyConnection? onTestConnection;
 
   @override
   State<NetworkProxyPage> createState() => _NetworkProxyPageState();
 }
 
-enum _NetworkProxyType {
-  http('HTTP'),
-  https('HTTPS'),
-  socks5('SOCKS5');
-
-  const _NetworkProxyType(this.label);
-
-  final String label;
-}
-
 class _NetworkProxyPageState extends State<NetworkProxyPage> {
-  static const _defaultServer = '127.0.0.1';
-  static const _defaultBypassRules =
-      'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,'
-      '192.168.0.0/16,::1';
+  late final TextEditingController _server;
+  late final TextEditingController _port;
+  late final TextEditingController _username;
+  late final TextEditingController _password;
+  late final TextEditingController _bypass;
+  late final TextEditingController _testUrl;
 
-  final TextEditingController _server = TextEditingController();
-  final TextEditingController _port = TextEditingController(text: '8080');
-  final TextEditingController _username = TextEditingController();
-  final TextEditingController _password = TextEditingController();
-  final TextEditingController _bypass = TextEditingController(
-    text: _defaultBypassRules,
-  );
-  final TextEditingController _testUrl = TextEditingController(
-    text: 'https://www.google.com',
-  );
-
-  var _enabled = false;
-  var _proxyType = _NetworkProxyType.http;
+  late bool _enabled;
+  late ChatNetworkProxyType _proxyType;
   String? _testMessage;
   bool _testSucceeded = false;
+  bool _isTesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = widget.settings.enabled;
+    _proxyType = widget.settings.type;
+    _server = TextEditingController(text: widget.settings.server);
+    _port = TextEditingController(text: widget.settings.port.toString());
+    _username = TextEditingController(text: widget.settings.username);
+    _password = TextEditingController(text: widget.settings.password);
+    _bypass =
+        TextEditingController(text: widget.settings.bypassRules.join(','));
+    _testUrl = TextEditingController(text: widget.settings.testUrl);
+  }
+
+  @override
+  void didUpdateWidget(covariant NetworkProxyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _enabled = widget.settings.enabled;
+      _proxyType = widget.settings.type;
+      _server.text = widget.settings.server;
+      _port.text = widget.settings.port.toString();
+      _username.text = widget.settings.username;
+      _password.text = widget.settings.password;
+      _bypass.text = widget.settings.bypassRules.join(',');
+      _testUrl.text = widget.settings.testUrl;
+    }
+  }
 
   @override
   void dispose() {
@@ -56,6 +81,14 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
   Widget build(BuildContext context) {
     return SettingsScreenFrame(
       title: '网络代理',
+      actions: <Widget>[
+        IconButton(
+          key: const Key('network_proxy_save_button'),
+          tooltip: '保存',
+          onPressed: _save,
+          icon: const Icon(Icons.check, size: 30),
+        ),
+      ],
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
@@ -91,14 +124,14 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                 ),
                 const SizedBox(height: 26),
                 const _ProxyFieldLabel('代理类型'),
-                DropdownButtonFormField<_NetworkProxyType>(
+                DropdownButtonFormField<ChatNetworkProxyType>(
                   key: const Key('proxy_type_dropdown'),
                   initialValue: _proxyType,
                   decoration: _fieldDecoration(context),
                   borderRadius: BorderRadius.circular(16),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                  items: _NetworkProxyType.values.map((type) {
-                    return DropdownMenuItem<_NetworkProxyType>(
+                  items: ChatNetworkProxyType.values.map((type) {
+                    return DropdownMenuItem<ChatNetworkProxyType>(
                       value: type,
                       child: Text(type.label),
                     );
@@ -118,7 +151,7 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                 _ProxyTextField(
                   fieldKey: const Key('proxy_server_field'),
                   controller: _server,
-                  hintText: _defaultServer,
+                  hintText: '127.0.0.1',
                   keyboardType: TextInputType.url,
                   onChanged: (_) => _clearTestMessage(),
                 ),
@@ -162,7 +195,7 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '当同时开启全局代理与供应商代理时，将优先使用供应商代理。',
+                  '代理设置会应用于 BareBrain WebSocket、语音 HTTP 和 OTA 版本检查，命中绕过规则时使用直连。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: settingsSecondaryText,
                         fontSize: 15,
@@ -200,7 +233,7 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                   height: 56,
                   child: FilledButton(
                     key: const Key('proxy_test_button'),
-                    onPressed: _testConnection,
+                    onPressed: _isTesting ? null : _testConnection,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xfff0f0f1),
                       foregroundColor: settingsPrimaryText,
@@ -213,7 +246,13 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                                 fontWeight: FontWeight.w800,
                               ),
                     ),
-                    child: const Text('测试'),
+                    child: _isTesting
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('测试'),
                   ),
                 ),
                 if (_testMessage != null) ...<Widget>[
@@ -239,48 +278,146 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
     setState(() => _testMessage = null);
   }
 
-  void _testConnection() {
-    final result = _validateTestConfiguration();
+  Future<void> _testConnection() async {
+    final settings = _parseSettings(requireTestUrl: true);
+    if (settings == null) {
+      return;
+    }
+
+    final testConnection = widget.onTestConnection;
+    if (testConnection == null) {
+      final result = _configurationTestResult(settings);
+      setState(() {
+        _testSucceeded = result.succeeded;
+        _testMessage = result.message;
+      });
+      return;
+    }
+
     setState(() {
-      _testSucceeded = result.succeeded;
-      _testMessage = result.message;
+      _isTesting = true;
+      _testSucceeded = false;
+      _testMessage = null;
+    });
+
+    try {
+      await testConnection(settings);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _testSucceeded = true;
+        _testMessage = settings.enabled
+            ? '连接测试成功：${settings.type.label} '
+                '${settings.server}:${settings.port}'
+            : '连接测试成功：当前为直连模式';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _testSucceeded = false;
+        _testMessage = '$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isTesting = false);
+      }
+    }
+  }
+
+  _ProxyTestResult _configurationTestResult(
+    ChatNetworkProxySettings settings,
+  ) {
+    return _ProxyTestResult(
+      succeeded: true,
+      message: settings.enabled
+          ? '配置检查通过：${settings.type.label} '
+              '${settings.server}:${settings.port}'
+          : '配置检查通过：当前为直连模式',
+    );
+  }
+
+  void _save() {
+    final settings = _parseSettings();
+    if (settings == null) {
+      return;
+    }
+
+    setState(() {
+      _enabled = settings.enabled;
+      _proxyType = settings.type;
+      _server.text = settings.server;
+      _port.text = settings.port.toString();
+      _username.text = settings.username;
+      _password.text = settings.password;
+      _bypass.text = settings.bypassRules.join(',');
+      _testUrl.text = settings.testUrl;
+      _testSucceeded = true;
+      _testMessage = '网络代理设置已保存';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('网络代理设置已保存')),
+    );
+    widget.onChanged?.call(settings);
+  }
+
+  ChatNetworkProxySettings? _parseSettings({bool requireTestUrl = false}) {
+    final testUrl = _testUrl.text.trim();
+    final testUri = Uri.tryParse(testUrl);
+    final testUrlIsInvalid = testUri == null ||
+        testUri.host.isEmpty ||
+        (testUri.scheme != 'http' && testUri.scheme != 'https');
+    if (requireTestUrl && testUrlIsInvalid) {
+      _setValidationMessage('测试地址必须是 http 或 https URL');
+      return null;
+    }
+
+    final parsedPort = int.tryParse(_port.text.trim());
+    final portIsInvalid =
+        parsedPort == null || parsedPort <= 0 || parsedPort > 65535;
+    if (_enabled && portIsInvalid) {
+      _setValidationMessage('代理端口必须在 1 到 65535 之间');
+      return null;
+    }
+
+    final rawServer = _server.text.trim();
+    final serverIsInvalid =
+        rawServer.contains(RegExp(r'\s')) || rawServer.contains('/');
+    if (_enabled && serverIsInvalid) {
+      _setValidationMessage('服务器地址只填写 IP 或主机名');
+      return null;
+    }
+    final server =
+        rawServer.isEmpty || serverIsInvalid ? '127.0.0.1' : rawServer;
+
+    return ChatNetworkProxySettings(
+      enabled: _enabled,
+      type: _proxyType,
+      server: server,
+      port: portIsInvalid ? 8080 : parsedPort,
+      username: _username.text.trim(),
+      password: _password.text,
+      bypassRules: _parseBypassRules(_bypass.text),
+      testUrl:
+          testUrlIsInvalid ? const ChatNetworkProxySettings().testUrl : testUrl,
+    );
+  }
+
+  void _setValidationMessage(String message) {
+    setState(() {
+      _testSucceeded = false;
+      _testMessage = message;
     });
   }
 
-  _ProxyTestResult _validateTestConfiguration() {
-    final testUri = Uri.tryParse(_testUrl.text.trim());
-    if (testUri == null ||
-        testUri.host.isEmpty ||
-        (testUri.scheme != 'http' && testUri.scheme != 'https')) {
-      return const _ProxyTestResult(
-        succeeded: false,
-        message: '测试地址必须是 http 或 https URL',
-      );
-    }
-
-    final port = int.tryParse(_port.text.trim());
-    if (port == null || port <= 0 || port > 65535) {
-      return const _ProxyTestResult(
-        succeeded: false,
-        message: '代理端口必须在 1 到 65535 之间',
-      );
-    }
-
-    final server =
-        _server.text.trim().isEmpty ? _defaultServer : _server.text.trim();
-    if (server.contains(RegExp(r'\s')) || server.contains('/')) {
-      return const _ProxyTestResult(
-        succeeded: false,
-        message: '服务器地址只填写 IP 或主机名',
-      );
-    }
-
-    return _ProxyTestResult(
-      succeeded: true,
-      message: _enabled
-          ? '配置检查通过：${_proxyType.label} $server:$port'
-          : '配置检查通过：当前为直连模式',
-    );
+  List<String> _parseBypassRules(String source) {
+    return source
+        .split(RegExp(r'[,\n]'))
+        .map((rule) => rule.trim())
+        .where((rule) => rule.isNotEmpty)
+        .toList(growable: false);
   }
 }
 

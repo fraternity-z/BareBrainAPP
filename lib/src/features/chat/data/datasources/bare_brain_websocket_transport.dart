@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../../core/errors/chat_exception.dart';
+import '../../domain/entities/chat_app_settings.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../models/bare_brain_ws_payload.dart';
 import 'chat_transport.dart';
@@ -9,8 +10,12 @@ import 'text_socket_connection.dart';
 class BareBrainWebSocketTransport implements ChatTransport {
   BareBrainWebSocketTransport({
     TextSocketConnectionFactory? connectionFactory,
-  }) : _connectionFactory =
-            connectionFactory ?? ((uri) => WebSocketTextSocketConnection(uri));
+    ChatNetworkProxySettings Function()? networkProxySettingsProvider,
+  }) : _connectionFactory = connectionFactory ??
+            ((uri) => WebSocketTextSocketConnection(
+                  uri,
+                  networkProxySettings: networkProxySettingsProvider?.call(),
+                ));
 
   final TextSocketConnectionFactory _connectionFactory;
 

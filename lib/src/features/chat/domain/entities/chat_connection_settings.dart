@@ -43,4 +43,28 @@ class ChatConnectionSettings {
       otaSettings: otaSettings ?? this.otaSettings,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is ChatConnectionSettings &&
+            other.host == host &&
+            other.port == port &&
+            other.clientId == clientId &&
+            other.responseTimeout == responseTimeout &&
+            other.secure == secure &&
+            other.otaSettings == otaSettings;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      host,
+      port,
+      clientId,
+      responseTimeout,
+      secure,
+      otaSettings,
+    );
+  }
 }

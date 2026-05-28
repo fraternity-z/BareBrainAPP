@@ -7,21 +7,38 @@ import 'package:flutter/services.dart';
 import '../../domain/entities/chat_conversation_summary.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_display_settings.dart';
+import '../../domain/entities/chat_app_settings.dart';
+import '../controllers/chat_app_settings_controller.dart';
 import '../controllers/chat_controller.dart';
+import '../controllers/chat_display_settings_controller.dart';
+import '../settings/network_proxy_page.dart';
 import '../settings/settings_page.dart';
+import '../settings/voice_service_page.dart';
 import '../widgets/message_bubble.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
     required this.controller,
     this.displaySettings = const ChatDisplaySettings(),
+    this.displaySettingsController,
+    this.displaySettingsError,
     this.onDisplaySettingsChanged,
+    this.appSettingsController,
+    this.onTestNetworkProxyConnection,
+    this.onTestVoiceService,
+    this.onTestOtaVersionCheck,
     super.key,
   });
 
   final ChatController controller;
   final ChatDisplaySettings displaySettings;
+  final ChatDisplaySettingsController? displaySettingsController;
+  final String? displaySettingsError;
   final ValueChanged<ChatDisplaySettings>? onDisplaySettingsChanged;
+  final ChatAppSettingsController? appSettingsController;
+  final TestNetworkProxyConnection? onTestNetworkProxyConnection;
+  final TestVoiceService? onTestVoiceService;
+  final TestOtaVersionCheck? onTestOtaVersionCheck;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -127,13 +144,19 @@ class _ChatPageState extends State<ChatPage> {
                                   );
                                 },
                               ),
-                              _StatusBanner(controller: widget.controller),
+                              _StatusBanner(
+                                controller: widget.controller,
+                                onRetry: () => unawaited(_retryLastMessage()),
+                              ),
                               Expanded(
                                 child: _MessageList(
                                   controller: widget.controller,
                                   displaySettings: widget.displaySettings,
                                   onCopyMessage: (content) {
                                     unawaited(_copyMessage(content));
+                                  },
+                                  onRetryMessage: () {
+                                    unawaited(_retryLastMessage());
                                   },
                                   scrollController: _scrollController,
                                 ),
@@ -142,8 +165,12 @@ class _ChatPageState extends State<ChatPage> {
                                 controller: widget.controller,
                                 displaySettings: widget.displaySettings,
                                 textController: _composer,
-                                onChanged: widget.controller.updateDraft,
+                                onChanged: _updateDraft,
                                 onSend: _send,
+                                onQuickPhrasesPressed:
+                                    widget.appSettingsController == null
+                                        ? null
+                                        : _openQuickPhrasePicker,
                               ),
                             ],
                           ),
@@ -161,13 +188,37 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _send() async {
+    _syncRuntimeSettings();
     final text = _composer.text;
     _composer.clear();
     widget.controller.updateDraft('');
     if (widget.displaySettings.hapticFeedback && text.trim().isNotEmpty) {
       unawaited(HapticFeedback.selectionClick());
     }
-    await widget.controller.send(text);
+    final appSettings = widget.appSettingsController?.settings;
+    await widget.controller.send(
+      text,
+      transportContent: appSettings == null
+          ? null
+          : _buildTransportContent(text, appSettings),
+    );
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleScrollToBottom(widget.displaySettings.autoScrollDelay);
+    });
+  }
+
+  Future<void> _retryLastMessage() async {
+    _syncRuntimeSettings();
+    final source = widget.controller.lastRetryableUserMessageContent;
+    final appSettings = widget.appSettingsController?.settings;
+    await widget.controller.retryLastUserMessage(
+      transportContent: source == null || appSettings == null
+          ? null
+          : _buildTransportContent(source, appSettings),
+    );
     if (!mounted) {
       return;
     }
@@ -218,6 +269,22 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _updateDraft(String draft) {
+    _syncRuntimeSettings();
+    widget.controller.updateDraft(draft);
+  }
+
+  void _syncRuntimeSettings() {
+    final settings = widget.appSettingsController?.settings;
+    if (settings == null) {
+      return;
+    }
+
+    widget.controller
+      ..updateStorageSettings(settings.storage)
+      ..updateVoiceSettings(settings.voice);
+  }
+
   void _openSettings() {
     unawaited(
       Navigator.of(context).push<void>(
@@ -227,8 +294,14 @@ class _ChatPageState extends State<ChatPage> {
               settings: widget.controller.settings,
               onSettingsChanged: widget.controller.updateSettings,
               displaySettings: widget.displaySettings,
+              displaySettingsController: widget.displaySettingsController,
+              displaySettingsError: widget.displaySettingsError,
               onDisplaySettingsChanged: widget.onDisplaySettingsChanged,
+              appSettingsController: widget.appSettingsController,
               onTestConnection: widget.controller.testConnection,
+              onTestNetworkProxyConnection: widget.onTestNetworkProxyConnection,
+              onTestVoiceService: widget.onTestVoiceService,
+              onTestOtaVersionCheck: widget.onTestOtaVersionCheck,
             );
           },
         ),
@@ -244,6 +317,121 @@ class _ChatPageState extends State<ChatPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已复制')),
     );
+  }
+
+  Future<void> _openQuickPhrasePicker() async {
+    final phrases = widget.appSettingsController?.settings.quickPhrases
+            .where((phrase) => phrase.enabled)
+            .toList(growable: false) ??
+        const <ChatQuickPhrase>[];
+    if (phrases.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无可用快捷短语')),
+      );
+      return;
+    }
+
+    final phrase = await showModalBottomSheet<ChatQuickPhrase>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _QuickPhrasePickerSheet(phrases: phrases),
+    );
+
+    if (phrase == null || !mounted) {
+      return;
+    }
+
+    _insertComposerText(phrase.content);
+  }
+
+  void _insertComposerText(String content) {
+    final selection = _composer.selection;
+    final text = _composer.text;
+    final insert = content.trim();
+    if (insert.isEmpty) {
+      return;
+    }
+
+    final start = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    final separator =
+        start > 0 && !text.substring(0, start).endsWith('\n') ? '\n' : '';
+    final next = text.replaceRange(start, end, '$separator$insert');
+    final offset = start + separator.length + insert.length;
+    _composer.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: offset),
+    );
+    widget.controller.updateDraft(next);
+  }
+
+  String _buildTransportContent(String source, ChatAppSettings settings) {
+    final normalized = source.trim();
+    final prefix = <String>[];
+    final suffix = <String>[];
+
+    if (settings.worldBook.enabled) {
+      final entries = _matchingWorldBookEntries(normalized, settings.worldBook);
+      if (entries.isNotEmpty) {
+        prefix.add(
+          entries
+              .map((entry) => '[世界书：${entry.title}]\n${entry.content}')
+              .join('\n\n'),
+        );
+      }
+    }
+
+    if (settings.promptInjection.enabled) {
+      for (final rule in settings.promptInjection.rules) {
+        if (!rule.enabled || rule.content.trim().isEmpty) {
+          continue;
+        }
+
+        switch (rule.position) {
+          case ChatPromptInjectionPosition.systemPrefix:
+            prefix.add('[系统指令：${rule.title}]\n${rule.content.trim()}');
+            break;
+          case ChatPromptInjectionPosition.userPrefix:
+            prefix.add('[用户指令：${rule.title}]\n${rule.content.trim()}');
+            break;
+          case ChatPromptInjectionPosition.messageSuffix:
+            suffix.add('[后置指令：${rule.title}]\n${rule.content.trim()}');
+            break;
+        }
+      }
+    }
+
+    return <String>[
+      ...prefix,
+      normalized,
+      ...suffix,
+    ].where((part) => part.trim().isNotEmpty).join('\n\n');
+  }
+
+  List<ChatWorldBookEntry> _matchingWorldBookEntries(
+    String source,
+    ChatWorldBookSettings settings,
+  ) {
+    final lower = source.toLowerCase();
+    final entries = <ChatWorldBookEntry>[];
+    for (final entry in settings.entries) {
+      if (!entry.enabled) {
+        continue;
+      }
+
+      if (entry.keywords.isEmpty ||
+          entry.keywords.any((keyword) {
+            return lower.contains(keyword.toLowerCase());
+          })) {
+        entries.add(entry);
+      }
+
+      if (entries.length >= settings.maxActiveEntries) {
+        break;
+      }
+    }
+
+    return entries;
   }
 }
 
@@ -298,9 +486,11 @@ Color _chatSurfaceColor(
 class _StatusBanner extends StatelessWidget {
   const _StatusBanner({
     required this.controller,
+    required this.onRetry,
   });
 
   final ChatController controller;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +541,7 @@ class _StatusBanner extends StatelessWidget {
               if (isError && controller.canRetryLastMessage) ...<Widget>[
                 const SizedBox(width: 8),
                 TextButton.icon(
-                  onPressed: () => unawaited(controller.retryLastUserMessage()),
+                  onPressed: onRetry,
                   style: TextButton.styleFrom(foregroundColor: foreground),
                   icon: const Icon(Icons.refresh),
                   label: const Text('重试'),
@@ -1031,12 +1221,14 @@ class _MessageList extends StatelessWidget {
     required this.controller,
     required this.displaySettings,
     required this.onCopyMessage,
+    required this.onRetryMessage,
     required this.scrollController,
   });
 
   final ChatController controller;
   final ChatDisplaySettings displaySettings;
   final ValueChanged<String> onCopyMessage;
+  final VoidCallback onRetryMessage;
   final ScrollController scrollController;
 
   @override
@@ -1059,7 +1251,7 @@ class _MessageList extends StatelessWidget {
           onCopy: () => onCopyMessage(controller.messages[index].content),
           onRetry: controller.canRetryLastMessage &&
                   index == controller.messages.length - 2
-              ? () => unawaited(controller.retryLastUserMessage())
+              ? onRetryMessage
               : null,
         );
       },
@@ -1413,6 +1605,7 @@ class _Composer extends StatelessWidget {
     required this.textController,
     required this.onChanged,
     required this.onSend,
+    this.onQuickPhrasesPressed,
   });
 
   final ChatController controller;
@@ -1420,6 +1613,7 @@ class _Composer extends StatelessWidget {
   final TextEditingController textController;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
+  final VoidCallback? onQuickPhrasesPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1476,7 +1670,11 @@ class _Composer extends StatelessWidget {
                   const SizedBox(width: 18),
                   const _ComposerToolIcon(icon: Icons.public_outlined),
                   const SizedBox(width: 18),
-                  const _ComposerToolIcon(icon: Icons.bolt_outlined),
+                  _ComposerToolIcon(
+                    tooltip: '快捷短语',
+                    icon: Icons.bolt_outlined,
+                    onPressed: onQuickPhrasesPressed,
+                  ),
                   const Spacer(),
                   const _ComposerToolIcon(icon: Icons.add),
                   const SizedBox(width: 10),
@@ -1520,21 +1718,89 @@ class _ComposerToolIcon extends StatelessWidget {
   const _ComposerToolIcon({
     required this.icon,
     this.color,
+    this.tooltip,
+    this.onPressed,
   });
 
   final IconData icon;
   final Color? color;
+  final String? tooltip;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return SizedBox.square(
-      dimension: 30,
-      child: Center(
-        child: Icon(
-          icon,
-          size: 25,
-          color: color ?? colors.onSurfaceVariant,
+    final iconWidget = Icon(
+      icon,
+      size: 25,
+      color: color ?? colors.onSurfaceVariant,
+    );
+
+    if (onPressed == null) {
+      return SizedBox.square(
+        dimension: 30,
+        child: Center(child: iconWidget),
+      );
+    }
+
+    return Tooltip(
+      message: tooltip ?? '',
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 22,
+        child: SizedBox.square(
+          dimension: 30,
+          child: Center(child: iconWidget),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickPhrasePickerSheet extends StatelessWidget {
+  const _QuickPhrasePickerSheet({
+    required this.phrases,
+  });
+
+  final List<ChatQuickPhrase> phrases;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              '快捷短语',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: phrases.length,
+                itemBuilder: (context, index) {
+                  final phrase = phrases[index];
+                  return ListTile(
+                    key: Key('quick_phrase_picker_${phrase.id}'),
+                    title: Text(phrase.title),
+                    subtitle: Text(
+                      phrase.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    leading: const Icon(Icons.flash_on_outlined),
+                    onTap: () => Navigator.of(context).pop(phrase),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

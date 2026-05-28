@@ -78,7 +78,11 @@ class ChatOtaSettingsParser {
     }
 
     final uri = Uri.tryParse(path);
-    if (uri == null || uri.hasScheme || uri.hasAuthority || uri.hasFragment) {
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasQuery ||
+        uri.hasFragment) {
       throw ChatValidationException('$label必须是设备内的相对路径');
     }
   }

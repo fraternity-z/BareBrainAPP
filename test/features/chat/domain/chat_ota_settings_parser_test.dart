@@ -31,6 +31,13 @@ void main() {
 
       expect(
         () => ChatOtaSettingsParser.validate(
+          const ChatOtaSettings(versionPath: '/ota/version?channel=beta'),
+        ),
+        throwsA(isA<ChatValidationException>()),
+      );
+
+      expect(
+        () => ChatOtaSettingsParser.validate(
           const ChatOtaSettings(channel: 'bad channel'),
         ),
         throwsA(isA<ChatValidationException>()),

@@ -1,6 +1,8 @@
 import '../../../../core/errors/chat_exception.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_ota_settings.dart';
+import '../../domain/services/chat_connection_settings_parser.dart';
+import '../../domain/services/chat_ota_settings_parser.dart';
 
 class ChatConnectionSettingsCodec {
   const ChatConnectionSettingsCodec._();
@@ -31,15 +33,17 @@ class ChatConnectionSettingsCodec {
       throw const ChatStorageException('会话连接设置格式错误');
     }
 
-    return ChatConnectionSettings(
-      host: host,
-      port: port,
-      clientId: clientId,
-      responseTimeout: Duration(milliseconds: responseTimeoutMs),
-      secure: secure is bool ? secure : false,
-      otaSettings: otaSettings is Map<String, dynamic>
-          ? ChatOtaSettingsCodec.fromJson(otaSettings)
-          : const ChatOtaSettings(),
+    return ChatConnectionSettingsParser.normalize(
+      ChatConnectionSettings(
+        host: host,
+        port: port,
+        clientId: clientId,
+        responseTimeout: Duration(milliseconds: responseTimeoutMs),
+        secure: secure is bool ? secure : false,
+        otaSettings: otaSettings is Map<String, dynamic>
+            ? ChatOtaSettingsCodec.fromJson(otaSettings)
+            : const ChatOtaSettings(),
+      ),
     );
   }
 }
@@ -57,26 +61,27 @@ class ChatOtaSettingsCodec {
     };
   }
 
-  static ChatOtaSettings fromJson(Map<String, dynamic> value) {
+  static ChatOtaSettings fromJson(
+    Map<String, dynamic> value, {
+    ChatOtaSettings fallback = const ChatOtaSettings(),
+  }) {
     final versionPath = value['versionPath'];
     final firmwarePath = value['firmwarePath'];
     final channel = value['channel'];
     final requestTimeoutMs = value['requestTimeoutMs'];
     final autoCheck = value['autoCheck'];
 
-    if (versionPath is! String ||
-        firmwarePath is! String ||
-        channel is! String ||
-        requestTimeoutMs is! int) {
-      throw const ChatStorageException('OTA 设置格式错误');
-    }
-
-    return ChatOtaSettings(
-      versionPath: versionPath,
-      firmwarePath: firmwarePath,
-      channel: channel,
-      requestTimeout: Duration(milliseconds: requestTimeoutMs),
-      autoCheck: autoCheck is bool ? autoCheck : false,
+    return ChatOtaSettingsParser.normalize(
+      fallback.copyWith(
+        versionPath: versionPath is String ? versionPath : fallback.versionPath,
+        firmwarePath:
+            firmwarePath is String ? firmwarePath : fallback.firmwarePath,
+        channel: channel is String ? channel : fallback.channel,
+        requestTimeout: requestTimeoutMs is int
+            ? Duration(milliseconds: requestTimeoutMs)
+            : fallback.requestTimeout,
+        autoCheck: autoCheck is bool ? autoCheck : fallback.autoCheck,
+      ),
     );
   }
 }

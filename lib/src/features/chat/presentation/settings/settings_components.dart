@@ -241,6 +241,82 @@ class SettingsRow extends StatelessWidget {
   }
 }
 
+class SettingsSwitchRow extends StatelessWidget {
+  const SettingsSwitchRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 74),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 18, 8),
+            child: Row(
+              children: <Widget>[
+                SizedBox.square(
+                  dimension: 34,
+                  child: Icon(icon, size: 30, color: settingsPrimaryText),
+                ),
+                const SizedBox(width: 28),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: settingsPrimaryText,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                      if (subtitle != null) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: settingsSecondaryText,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Switch(value: value, onChanged: onChanged),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class SettingsFormPanel extends StatelessWidget {
   const SettingsFormPanel({
     required this.children,
@@ -262,6 +338,110 @@ class SettingsFormPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: children,
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsFeedbackBanner extends StatelessWidget {
+  const SettingsFeedbackBanner({
+    required this.message,
+    this.succeeded = false,
+    super.key,
+  });
+
+  final String message;
+  final bool succeeded;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final background =
+        succeeded ? colors.secondaryContainer : colors.errorContainer;
+    final foreground =
+        succeeded ? colors.onSecondaryContainer : colors.onErrorContainer;
+    final border = succeeded ? colors.secondary : colors.error;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border, width: 0.7),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              succeeded ? Icons.check_circle_outline : Icons.error_outline,
+              color: foreground,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsEmptyState extends StatelessWidget {
+  const SettingsEmptyState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: settingsCardBackground,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 28, 22, 28),
+        child: Column(
+          children: <Widget>[
+            Icon(icon, size: 38, color: settingsSecondaryText),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: settingsPrimaryText,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: settingsSecondaryText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
         ),
       ),
     );

@@ -3,154 +3,164 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/chat_app_settings.dart';
 import 'settings_components.dart';
 
-class QuickPhrasesPage extends StatefulWidget {
-  const QuickPhrasesPage({
-    this.phrases = const <ChatQuickPhrase>[],
+class PromptInjectionPage extends StatefulWidget {
+  const PromptInjectionPage({
+    this.settings = const ChatPromptInjectionSettings(),
     this.onChanged,
-    this.onPhraseSelected,
     super.key,
   });
 
-  final List<ChatQuickPhrase> phrases;
-  final ValueChanged<List<ChatQuickPhrase>>? onChanged;
-  final ValueChanged<ChatQuickPhrase>? onPhraseSelected;
+  final ChatPromptInjectionSettings settings;
+  final ValueChanged<ChatPromptInjectionSettings>? onChanged;
 
   @override
-  State<QuickPhrasesPage> createState() => _QuickPhrasesPageState();
+  State<PromptInjectionPage> createState() => _PromptInjectionPageState();
 }
 
-class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
-  late List<ChatQuickPhrase> _phrases;
+class _PromptInjectionPageState extends State<PromptInjectionPage> {
+  late ChatPromptInjectionSettings _settings;
 
   @override
   void initState() {
     super.initState();
-    _phrases = List<ChatQuickPhrase>.of(widget.phrases);
+    _settings = widget.settings;
   }
 
   @override
-  void didUpdateWidget(covariant QuickPhrasesPage oldWidget) {
+  void didUpdateWidget(covariant PromptInjectionPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.phrases != widget.phrases) {
-      _phrases = List<ChatQuickPhrase>.of(widget.phrases);
+    if (oldWidget.settings != widget.settings) {
+      _settings = widget.settings;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return SettingsScreenFrame(
-      title: '快捷短语',
+      title: '指令注入',
       actions: <Widget>[
         IconButton(
-          key: const Key('add_quick_phrase_button'),
-          tooltip: '添加快捷短语',
-          onPressed: _addPhrase,
-          style: IconButton.styleFrom(
-            foregroundColor: Colors.black,
-            backgroundColor: Colors.transparent,
-            fixedSize: const Size.square(42),
-            shape: const CircleBorder(),
-          ),
-          icon: const Icon(Icons.add, size: 32),
+          key: const Key('add_prompt_rule_button'),
+          tooltip: '添加指令',
+          onPressed: _addRule,
+          icon: const Icon(Icons.add, size: 30),
         ),
       ],
-      child: _phrases.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 32),
-              child: SettingsEmptyState(
-                icon: Icons.flash_on_outlined,
-                title: '暂无快捷短语',
-                subtitle: '添加后可以在设置里管理，也可以从输入栏快速插入。',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        children: <Widget>[
+          SettingsFormPanel(
+            children: <Widget>[
+              SwitchListTile(
+                key: const Key('prompt_injection_enabled_switch'),
+                value: _settings.enabled,
+                onChanged: (value) {
+                  _update(_settings.copyWith(enabled: value));
+                },
+                title: const Text('启用指令注入'),
+                secondary: const Icon(Icons.layers_outlined),
+                contentPadding: EdgeInsets.zero,
               ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (_settings.rules.isEmpty)
+            const SettingsEmptyState(
+              icon: Icons.layers_outlined,
+              title: '暂无注入指令',
+              subtitle: '添加后可在发送前组合系统、用户或后置提示片段。',
             )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-              itemCount: _phrases.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final phrase = _phrases[index];
-                return _QuickPhraseTile(
-                  phrase: phrase,
-                  onTap: widget.onPhraseSelected == null
-                      ? () => _editPhrase(phrase)
-                      : () => widget.onPhraseSelected?.call(phrase),
-                  onEdit: () => _editPhrase(phrase),
-                  onDelete: () => _deletePhrase(phrase.id),
+          else
+            ..._settings.rules.map((rule) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PromptRuleTile(
+                  rule: rule,
+                  onTap: () => _editRule(rule),
                   onEnabledChanged: (enabled) {
-                    _replacePhrase(phrase.copyWith(enabled: enabled));
+                    _replaceRule(rule.copyWith(enabled: enabled));
                   },
-                );
-              },
-            ),
+                  onDelete: () => _deleteRule(rule.id),
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 
-  Future<void> _addPhrase() async {
-    final phrase = await showModalBottomSheet<ChatQuickPhrase>(
+  Future<void> _addRule() async {
+    final rule = await showModalBottomSheet<ChatPromptInjectionRule>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => const QuickPhraseSheet(),
+      builder: (context) => const PromptRuleSheet(),
     );
 
-    if (phrase == null || !mounted) {
+    if (rule == null || !mounted) {
       return;
     }
 
-    setState(() => _phrases = <ChatQuickPhrase>[..._phrases, phrase]);
-    _emit();
+    _update(
+      _settings.copyWith(
+        rules: <ChatPromptInjectionRule>[..._settings.rules, rule],
+      ),
+    );
   }
 
-  Future<void> _editPhrase(ChatQuickPhrase phrase) async {
-    final next = await showModalBottomSheet<ChatQuickPhrase>(
+  Future<void> _editRule(ChatPromptInjectionRule rule) async {
+    final next = await showModalBottomSheet<ChatPromptInjectionRule>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => QuickPhraseSheet(initialPhrase: phrase),
+      builder: (context) => PromptRuleSheet(initialRule: rule),
     );
 
     if (next == null || !mounted) {
       return;
     }
 
-    _replacePhrase(next);
+    _replaceRule(next);
   }
 
-  void _deletePhrase(String id) {
-    setState(() {
-      _phrases = _phrases.where((phrase) => phrase.id != id).toList();
-    });
-    _emit();
+  void _replaceRule(ChatPromptInjectionRule next) {
+    _update(
+      _settings.copyWith(
+        rules: _settings.rules.map((rule) {
+          return rule.id == next.id ? next : rule;
+        }).toList(growable: false),
+      ),
+    );
   }
 
-  void _replacePhrase(ChatQuickPhrase next) {
-    setState(() {
-      _phrases = _phrases.map((phrase) {
-        return phrase.id == next.id ? next : phrase;
-      }).toList();
-    });
-    _emit();
+  void _deleteRule(String id) {
+    _update(
+      _settings.copyWith(
+        rules: _settings.rules
+            .where((rule) => rule.id != id)
+            .toList(growable: false),
+      ),
+    );
   }
 
-  void _emit() {
-    widget.onChanged?.call(List<ChatQuickPhrase>.unmodifiable(_phrases));
+  void _update(ChatPromptInjectionSettings settings) {
+    setState(() => _settings = settings);
+    widget.onChanged?.call(settings);
   }
 }
 
-class _QuickPhraseTile extends StatelessWidget {
-  const _QuickPhraseTile({
-    required this.phrase,
+class _PromptRuleTile extends StatelessWidget {
+  const _PromptRuleTile({
+    required this.rule,
     required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
     required this.onEnabledChanged,
+    required this.onDelete,
   });
 
-  final ChatQuickPhrase phrase;
+  final ChatPromptInjectionRule rule;
   final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -163,39 +173,50 @@ class _QuickPhraseTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 10, 18),
+          padding: const EdgeInsets.fromLTRB(18, 18, 10, 18),
           child: Row(
             children: <Widget>[
               Icon(
-                Icons.flash_on_outlined,
-                color: phrase.enabled
+                Icons.layers_outlined,
+                color: rule.enabled
                     ? Theme.of(context).colorScheme.primary
                     : settingsSecondaryText,
-                size: 32,
+                size: 30,
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      phrase.title,
+                      rule.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: settingsPrimaryText,
-                            fontSize: 21,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      phrase.content,
+                      rule.position.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: settingsSecondaryText,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      rule.content,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: settingsSecondaryText,
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                     ),
@@ -203,18 +224,12 @@ class _QuickPhraseTile extends StatelessWidget {
                 ),
               ),
               Switch(
-                key: Key('quick_phrase_enabled_${phrase.id}'),
-                value: phrase.enabled,
+                key: Key('prompt_rule_enabled_${rule.id}'),
+                value: rule.enabled,
                 onChanged: onEnabledChanged,
               ),
               IconButton(
-                key: Key('edit_quick_phrase_${phrase.id}'),
-                tooltip: '编辑',
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              IconButton(
-                key: Key('delete_quick_phrase_${phrase.id}'),
+                key: Key('delete_prompt_rule_${rule.id}'),
                 tooltip: '删除',
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline),
@@ -227,30 +242,32 @@ class _QuickPhraseTile extends StatelessWidget {
   }
 }
 
-class QuickPhraseSheet extends StatefulWidget {
-  const QuickPhraseSheet({
-    this.initialPhrase,
+class PromptRuleSheet extends StatefulWidget {
+  const PromptRuleSheet({
+    this.initialRule,
     super.key,
   });
 
-  final ChatQuickPhrase? initialPhrase;
+  final ChatPromptInjectionRule? initialRule;
 
   @override
-  State<QuickPhraseSheet> createState() => _QuickPhraseSheetState();
+  State<PromptRuleSheet> createState() => _PromptRuleSheetState();
 }
 
-class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
+class _PromptRuleSheetState extends State<PromptRuleSheet> {
   late final TextEditingController _title;
   late final TextEditingController _content;
+  late ChatPromptInjectionPosition _position;
   late bool _enabled;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialPhrase;
+    final initial = widget.initialRule;
     _title = TextEditingController(text: initial?.title ?? '');
     _content = TextEditingController(text: initial?.content ?? '');
+    _position = initial?.position ?? ChatPromptInjectionPosition.systemPrefix;
     _enabled = initial?.enabled ?? true;
   }
 
@@ -276,7 +293,7 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Text(
-                  widget.initialPhrase == null ? '添加快捷短语' : '编辑快捷短语',
+                  widget.initialRule == null ? '添加注入指令' : '编辑注入指令',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: settingsPrimaryText,
@@ -285,21 +302,41 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
                 ),
                 const SizedBox(height: 20),
                 TextField(
-                  key: const Key('quick_phrase_title_field'),
+                  key: const Key('prompt_rule_title_field'),
                   controller: _title,
                   autofocus: true,
                   decoration: const InputDecoration(labelText: '标题'),
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => _clearError(),
                 ),
-                const SizedBox(height: 14),
-                TextField(
-                  key: const Key('quick_phrase_content_field'),
-                  controller: _content,
-                  minLines: 4,
-                  maxLines: 8,
+                const SizedBox(height: 12),
+                DropdownButtonFormField<ChatPromptInjectionPosition>(
+                  key: const Key('prompt_rule_position_dropdown'),
+                  initialValue: _position,
                   decoration: const InputDecoration(
-                    hintText: '内容',
+                    labelText: '注入位置',
+                    prefixIcon: Icon(Icons.call_split_outlined),
+                  ),
+                  items: ChatPromptInjectionPosition.values.map((position) {
+                    return DropdownMenuItem<ChatPromptInjectionPosition>(
+                      value: position,
+                      child: Text(position.label),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _position = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('prompt_rule_content_field'),
+                  controller: _content,
+                  minLines: 5,
+                  maxLines: 10,
+                  decoration: const InputDecoration(
+                    labelText: '指令内容',
                     alignLabelWithHint: true,
                   ),
                   textInputAction: TextInputAction.newline,
@@ -335,7 +372,7 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        key: const Key('save_quick_phrase_button'),
+                        key: const Key('save_prompt_rule_button'),
                         onPressed: _save,
                         child: const Text('保存'),
                       ),
@@ -358,12 +395,13 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
       return;
     }
 
-    final initial = widget.initialPhrase;
+    final initial = widget.initialRule;
     Navigator.of(context).pop(
-      ChatQuickPhrase(
+      ChatPromptInjectionRule(
         id: initial?.id ?? _newId(),
         title: title,
         content: content,
+        position: _position,
         enabled: _enabled,
       ),
     );
@@ -378,6 +416,6 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
   }
 
   String _newId() {
-    return 'phrase-${DateTime.now().microsecondsSinceEpoch}';
+    return 'prompt-${DateTime.now().microsecondsSinceEpoch}';
   }
 }

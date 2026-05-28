@@ -5,13 +5,17 @@ import '../../domain/entities/chat_ota_settings.dart';
 import '../../domain/services/chat_ota_settings_parser.dart';
 import 'settings_components.dart';
 
+typedef TestOtaSettings = Future<void> Function(ChatOtaSettings settings);
+
 class OtaSettingsSheet extends StatefulWidget {
   const OtaSettingsSheet({
     required this.settings,
+    this.onTestVersionCheck,
     super.key,
   });
 
   final ChatOtaSettings settings;
+  final TestOtaSettings? onTestVersionCheck;
 
   @override
   State<OtaSettingsSheet> createState() => _OtaSettingsSheetState();
@@ -24,6 +28,8 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
   late final TextEditingController _timeout;
   late bool _autoCheck;
   String? _error;
+  String? _status;
+  bool _isTesting = false;
 
   @override
   void initState() {
@@ -49,7 +55,6 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final colors = Theme.of(context).colorScheme;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 20),
@@ -79,6 +84,7 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                         prefixIcon: Icon(Icons.fact_check_outlined),
                       ),
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) => _clearFeedback(),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -89,6 +95,7 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                         prefixIcon: Icon(Icons.system_update_alt_outlined),
                       ),
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) => _clearFeedback(),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -102,6 +109,7 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                               prefixIcon: Icon(Icons.merge_type_outlined),
                             ),
                             textInputAction: TextInputAction.next,
+                            onChanged: (_) => _clearFeedback(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -115,6 +123,7 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                             ),
                             keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.done,
+                            onChanged: (_) => _clearFeedback(),
                           ),
                         ),
                       ],
@@ -123,7 +132,11 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                     SwitchListTile(
                       value: _autoCheck,
                       onChanged: (value) {
-                        setState(() => _autoCheck = value);
+                        setState(() {
+                          _autoCheck = value;
+                          _error = null;
+                          _status = null;
+                        });
                       },
                       secondary:
                           const Icon(Icons.notifications_active_outlined),
@@ -135,18 +148,38 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                 if (_error != null) ...<Widget>[
                   const SizedBox(height: 10),
                   _OtaFeedback(
+                    succeeded: false,
                     message: _error!,
-                    background: colors.errorContainer,
-                    foreground: colors.onErrorContainer,
-                    border: colors.error,
+                  ),
+                ],
+                if (_status != null) ...<Widget>[
+                  const SizedBox(height: 10),
+                  _OtaFeedback(
+                    succeeded: true,
+                    message: _status!,
                   ),
                 ],
                 const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  key: const Key('test_ota_version_button'),
+                  onPressed: _isTesting ? null : _testVersionCheck,
+                  icon: _isTesting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering),
+                  label: const Text('测试版本检查'),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: <Widget>[
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _isTesting
+                            ? null
+                            : () => Navigator.of(context).pop(),
                         child: const Text('取消'),
                       ),
                     ),
@@ -154,7 +187,7 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                     Expanded(
                       child: FilledButton(
                         key: const Key('save_ota_settings_button'),
-                        onPressed: _save,
+                        onPressed: _isTesting ? null : _save,
                         child: const Text('保存'),
                       ),
                     ),
@@ -170,35 +203,101 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
 
   void _save() {
     try {
-      final settings = ChatOtaSettingsParser.parse(
-        versionPathInput: _versionPath.text,
-        firmwarePathInput: _firmwarePath.text,
-        channelInput: _channel.text,
-        timeoutSecondsInput: _timeout.text,
-        autoCheck: _autoCheck,
-      );
+      final settings = _parseSettings();
       Navigator.of(context).pop(settings);
     } on ChatException catch (error) {
-      setState(() => _error = error.message);
+      _showError(error.message);
     }
+  }
+
+  Future<void> _testVersionCheck() async {
+    ChatOtaSettings settings;
+    try {
+      settings = _parseSettings();
+    } on ChatException catch (error) {
+      _showError(error.message);
+      return;
+    }
+
+    final testVersionCheck = widget.onTestVersionCheck;
+    if (testVersionCheck == null) {
+      setState(() {
+        _error = null;
+        _status = 'OTA 参数检查通过';
+      });
+      return;
+    }
+
+    setState(() {
+      _isTesting = true;
+      _error = null;
+      _status = null;
+    });
+    try {
+      await testVersionCheck(settings);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _status = 'OTA 版本检查成功');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '$error');
+    } finally {
+      if (mounted) {
+        setState(() => _isTesting = false);
+      }
+    }
+  }
+
+  void _clearFeedback() {
+    if (_error == null && _status == null) {
+      return;
+    }
+
+    setState(() {
+      _error = null;
+      _status = null;
+    });
+  }
+
+  ChatOtaSettings _parseSettings() {
+    return ChatOtaSettingsParser.parse(
+      versionPathInput: _versionPath.text,
+      firmwarePathInput: _firmwarePath.text,
+      channelInput: _channel.text,
+      timeoutSecondsInput: _timeout.text,
+      autoCheck: _autoCheck,
+    );
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _status = null;
+      _error = message;
+    });
   }
 }
 
 class _OtaFeedback extends StatelessWidget {
   const _OtaFeedback({
+    required this.succeeded,
     required this.message,
-    required this.background,
-    required this.foreground,
-    required this.border,
   });
 
+  final bool succeeded;
   final String message;
-  final Color background;
-  final Color foreground;
-  final Color border;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final background =
+        succeeded ? colors.secondaryContainer : colors.errorContainer;
+    final foreground =
+        succeeded ? colors.onSecondaryContainer : colors.onErrorContainer;
+    final border = succeeded ? colors.secondary : colors.error;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: background,
@@ -209,7 +308,11 @@ class _OtaFeedback extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: <Widget>[
-            Icon(Icons.error_outline, color: foreground, size: 18),
+            Icon(
+              succeeded ? Icons.check_circle_outline : Icons.error_outline,
+              color: foreground,
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
