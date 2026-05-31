@@ -197,6 +197,34 @@ void main() {
       controller.dispose();
     });
 
+    testWidgets('renders compact sidebar without search or header',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final controller = ChatController(
+        sendChatMessage: SendChatMessage(_FakeRepository()),
+        initialSettings: settings,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: controller)),
+      );
+
+      expect(find.text('搜索当前助手'), findsNothing);
+      expect(find.text('聊天工作台'), findsNothing);
+      expect(find.text('本地会话'), findsNothing);
+      expect(find.text('新建会话'), findsOneWidget);
+
+      await tester.tap(find.text('新建会话'));
+      await tester.pump();
+
+      expect(controller.conversationId, isNot('default'));
+
+      controller.dispose();
+    });
+
     testWidgets('hides desktop sidebar and restores it from header',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));

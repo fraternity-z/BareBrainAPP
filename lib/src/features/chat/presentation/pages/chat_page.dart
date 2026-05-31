@@ -625,7 +625,7 @@ class _Sidebar extends StatelessWidget {
       key: const Key('chat_sidebar'),
       width: sidebarWidth,
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.surfaceContainerLowest,
         border: showBorder
             ? Border(
                 right: BorderSide(color: colors.outlineVariant),
@@ -636,32 +636,34 @@ class _Sidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-            child: Row(
-              children: <Widget>[
-                const Expanded(child: _SidebarSearchPill()),
-                const SizedBox(width: 12),
-                _SidebarIconAction(
-                  tooltip: '新建会话',
-                  icon: Icons.add_comment_outlined,
-                  onPressed: () {
-                    unawaited(controller.createConversation());
-                    if (closeAfterAction) {
-                      unawaited(Navigator.of(context).maybePop());
-                    }
-                  },
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: _NewConversationButton(
+              onPressed: () {
+                unawaited(controller.createConversation());
+                if (closeAfterAction) {
+                  unawaited(Navigator.of(context).maybePop());
+                }
+              },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
-            child: Text(
-              '会话',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+            padding: const EdgeInsets.fromLTRB(22, 2, 22, 8),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.forum_outlined,
+                  size: 17,
+                  color: colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '会话',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -705,7 +707,7 @@ class _BareBrainMark extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
+        color: colors.primaryContainer,
         shape: BoxShape.circle,
       ),
       child: SizedBox(
@@ -715,7 +717,7 @@ class _BareBrainMark extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.onSurface,
+                  color: colors.onPrimaryContainer,
                   fontWeight: FontWeight.w800,
                 ),
           ),
@@ -725,35 +727,36 @@ class _BareBrainMark extends StatelessWidget {
   }
 }
 
-class _SidebarSearchPill extends StatelessWidget {
-  const _SidebarSearchPill();
+class _NewConversationButton extends StatelessWidget {
+  const _NewConversationButton({
+    required this.onPressed,
+  });
+
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(24),
-      ),
+    return Tooltip(
+      message: '新建会话',
       child: SizedBox(
-        height: 56,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '搜索当前助手',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ],
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(46),
+            backgroundColor: colors.primary,
+            foregroundColor: colors.onPrimary,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.centerLeft,
+          ),
+          icon: const Icon(Icons.add_comment_outlined, size: 20),
+          label: const Text(
+            '新建会话',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -772,18 +775,20 @@ class _SidebarFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: Row(
         children: <Widget>[
-          const _BareBrainMark(size: 44, label: '用'),
+          const _BareBrainMark(size: 38, label: '用'),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               '用户',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
             ),
@@ -804,30 +809,31 @@ class _SidebarFooter extends StatelessWidget {
   }
 }
 
-class _SidebarIconAction extends StatelessWidget {
-  const _SidebarIconAction({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
+class _ConversationAvatar extends StatelessWidget {
+  const _ConversationAvatar({
+    required this.selected,
   });
 
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onPressed;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return IconButton(
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
-        foregroundColor: colors.onSurface,
-        fixedSize: const Size.square(44),
-        shape: const CircleBorder(),
+    final background = selected ? colors.primary : colors.surfaceContainerHigh;
+    final foreground = selected ? colors.onPrimary : colors.onSurfaceVariant;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        shape: BoxShape.circle,
       ),
-      onPressed: onPressed,
-      icon: Icon(icon),
+      child: SizedBox.square(
+        dimension: 34,
+        child: Icon(
+          Icons.chat_bubble_outline,
+          size: 17,
+          color: foreground,
+        ),
+      ),
     );
   }
 }
@@ -854,9 +860,9 @@ class _ConversationList extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       itemCount: conversations.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 2),
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
         final conversation = conversations[index];
         return _ConversationTile(
@@ -903,6 +909,12 @@ class _ConversationTile extends StatelessWidget {
     final preview = conversation.lastMessagePreview.isEmpty
         ? conversation.settings.websocketUri.toString()
         : conversation.lastMessagePreview;
+    final backgroundColor = selected
+        ? Color.alphaBlend(
+            colors.primary.withValues(alpha: 0.08),
+            colors.surfaceContainerHigh,
+          )
+        : Colors.transparent;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -910,9 +922,10 @@ class _ConversationTile extends StatelessWidget {
         unawaited(_showActionsMenu(context, details.globalPosition));
       },
       child: Material(
-        color: selected ? colors.surfaceContainerHigh : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
         child: ListTile(
+          leading: _ConversationAvatar(selected: selected),
           selected: selected,
           selectedTileColor: Colors.transparent,
           title: Text(
@@ -920,20 +933,26 @@ class _ConversationTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w700,
+                  color: selected ? colors.primary : colors.onSurface,
+                  fontWeight: FontWeight.w800,
                 ),
           ),
           subtitle: Text(
             preview,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
           trailing: _ConversationMessageCount(count: conversation.messageCount),
           dense: true,
+          minLeadingWidth: 34,
+          horizontalTitleGap: 10,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           onTap: selected ? null : onTap,
         ),
@@ -1019,15 +1038,24 @@ class _ConversationMessageCount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 28,
-      child: Text(
-        count.toString(),
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: SizedBox(
+        width: 30,
+        height: 24,
+        child: Center(
+          child: Text(
+            count.toString(),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
       ),
     );
   }
