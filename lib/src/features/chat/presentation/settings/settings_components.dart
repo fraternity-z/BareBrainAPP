@@ -2,12 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const double settingsCardRadius = 8;
-const Color settingsPageBackground = Color(0xfff4f4f5);
+const double settingsCardRadius = 20;
+const Color settingsPageBackground = Color(0xfffbf9fd);
 const Color settingsCardBackground = Colors.white;
 const Color settingsPrimaryText = Color(0xff171717);
-const Color settingsSecondaryText = Color(0xff6d6d72);
-const Color settingsDividerColor = Color(0xffe7e7ea);
+const Color settingsSecondaryText = Color(0xff6f6f75);
+const Color settingsDividerColor = Color(0xffefeff2);
 
 Color settingsPageBackgroundColor(BuildContext context) {
   return _SettingsPalette.of(context).background;
@@ -34,7 +34,7 @@ BoxDecoration settingsCardDecoration(BuildContext context) {
   return BoxDecoration(
     color: palette.card,
     borderRadius: BorderRadius.circular(settingsCardRadius),
-    border: Border.all(color: palette.divider),
+    border: Border.all(color: palette.divider.withValues(alpha: 0.35)),
     boxShadow: palette.cardShadow,
   );
 }
@@ -83,29 +83,26 @@ class SettingsTopBar extends StatelessWidget {
     final palette = _SettingsPalette.of(context);
     final buttonStyle = IconButton.styleFrom(
       foregroundColor: palette.textStrong,
-      backgroundColor: palette.card,
-      fixedSize: const Size.square(42),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(settingsCardRadius),
-      ),
-      side: BorderSide(color: palette.divider),
+      backgroundColor: Colors.transparent,
+      fixedSize: const Size.square(48),
+      shape: const CircleBorder(),
     );
 
     return DecoratedBox(
       decoration: BoxDecoration(color: palette.background),
       child: SizedBox(
-        height: 88,
+        height: 100,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 12),
           child: Row(
             children: <Widget>[
               IconButton(
                 tooltip: '返回',
                 onPressed: () => Navigator.of(context).maybePop(),
                 style: buttonStyle,
-                icon: const Icon(Icons.arrow_back, size: 24),
+                icon: const Icon(Icons.arrow_back, size: 31),
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: 26),
               Expanded(
                 child: Text(
                   title,
@@ -113,8 +110,8 @@ class SettingsTopBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: palette.textStrong,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
                         letterSpacing: 0,
                       ),
                 ),
@@ -567,20 +564,14 @@ class _SettingsPalette {
       );
     }
 
-    return _SettingsPalette(
+    return const _SettingsPalette(
       background: settingsPageBackground,
       card: settingsCardBackground,
-      iconBackground: const Color(0xfff2f2f3),
+      iconBackground: Color(0xfff2f2f3),
       textStrong: settingsPrimaryText,
       textSoft: settingsSecondaryText,
       divider: settingsDividerColor,
-      cardShadow: <BoxShadow>[
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.045),
-          blurRadius: 22,
-          offset: const Offset(0, 10),
-        ),
-      ],
+      cardShadow: <BoxShadow>[],
     );
   }
 }

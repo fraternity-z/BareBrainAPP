@@ -304,6 +304,7 @@ class _ChatPageState extends State<ChatPage> {
               onTestNetworkProxyConnection: widget.onTestNetworkProxyConnection,
               onTestVoiceService: widget.onTestVoiceService,
               onTestOtaVersionCheck: widget.onTestOtaVersionCheck,
+              loadStorageUsage: widget.controller.loadStorageUsage,
             );
           },
         ),

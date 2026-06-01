@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -17,6 +18,8 @@ import '../../domain/services/chat_connection_settings_parser.dart';
 import '../../domain/services/chat_route_id_builder.dart';
 import '../../domain/usecases/check_chat_connection.dart';
 import '../../domain/usecases/send_chat_message.dart';
+import '../../data/models/chat_conversation_catalog_codec.dart';
+import '../../data/models/chat_session_snapshot_codec.dart';
 
 class ChatController extends ChangeNotifier {
   ChatController({
@@ -89,6 +92,64 @@ class ChatController extends ChangeNotifier {
 
   List<ChatConversationSummary> get conversations {
     return List<ChatConversationSummary>.unmodifiable(_conversations);
+  }
+
+  Future<ChatStorageUsage> loadStorageUsage() async {
+    await _saveSnapshot();
+    await _saveCatalogSummary();
+
+    final storedCatalog = await _catalogStore?.load();
+    final catalog = storedCatalog ??
+        ChatConversationCatalog(
+          activeConversationId: _conversationId,
+          conversations: _conversations,
+        );
+
+    final seenConversationIds = <String>{};
+    var messageCount = 0;
+    var draftCount = 0;
+    var snapshotBytes = 0;
+    DateTime? lastUpdated;
+
+    for (final conversation in catalog.conversations) {
+      if (!seenConversationIds.add(conversation.id)) {
+        continue;
+      }
+
+      final updatedAt = conversation.updatedAt;
+      if (lastUpdated == null || updatedAt.isAfter(lastUpdated)) {
+        lastUpdated = updatedAt;
+      }
+
+      final snapshot = await _storeForConversation(conversation.id)?.load();
+      if (snapshot == null) {
+        messageCount += conversation.messageCount;
+        continue;
+      }
+
+      messageCount += snapshot.messages.length;
+      if (snapshot.draft.trim().isNotEmpty) {
+        draftCount++;
+      }
+      snapshotBytes += utf8
+          .encode(
+            ChatSessionSnapshotCodec.encode(snapshot),
+          )
+          .length;
+    }
+
+    final catalogBytes = catalog.conversations.isEmpty
+        ? 0
+        : utf8.encode(ChatConversationCatalogCodec.encode(catalog)).length;
+
+    return ChatStorageUsage(
+      conversationCount: seenConversationIds.length,
+      messageCount: messageCount,
+      draftCount: draftCount,
+      catalogBytes: catalogBytes,
+      snapshotBytes: snapshotBytes,
+      lastUpdated: lastUpdated,
+    );
   }
 
   Future<void> restore() async {
@@ -724,4 +785,32 @@ class ChatController extends ChangeNotifier {
     _isDisposed = true;
     super.dispose();
   }
+}
+
+class ChatStorageUsage {
+  const ChatStorageUsage({
+    required this.conversationCount,
+    required this.messageCount,
+    required this.draftCount,
+    required this.catalogBytes,
+    required this.snapshotBytes,
+    this.lastUpdated,
+  });
+
+  const ChatStorageUsage.empty()
+      : conversationCount = 0,
+        messageCount = 0,
+        draftCount = 0,
+        catalogBytes = 0,
+        snapshotBytes = 0,
+        lastUpdated = null;
+
+  final int conversationCount;
+  final int messageCount;
+  final int draftCount;
+  final int catalogBytes;
+  final int snapshotBytes;
+  final DateTime? lastUpdated;
+
+  int get totalBytes => catalogBytes + snapshotBytes;
 }

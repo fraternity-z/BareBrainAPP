@@ -8,8 +8,8 @@ import '../../domain/entities/chat_ota_settings.dart';
 import '../controllers/chat_app_settings_controller.dart';
 import '../controllers/chat_display_settings_controller.dart';
 import '../widgets/settings_sheet.dart';
+import 'backup_restore_page.dart';
 import 'chat_storage_page.dart';
-import 'data_backup_page.dart';
 import 'display_settings_page.dart';
 import 'network_proxy_page.dart';
 import 'ota_settings_sheet.dart';
@@ -36,6 +36,7 @@ class ChatSettingsPage extends StatefulWidget {
     this.onTestNetworkProxyConnection,
     this.onTestVoiceService,
     this.onTestOtaVersionCheck,
+    this.loadStorageUsage,
     super.key,
   });
 
@@ -50,6 +51,7 @@ class ChatSettingsPage extends StatefulWidget {
   final TestNetworkProxyConnection? onTestNetworkProxyConnection;
   final TestVoiceService? onTestVoiceService;
   final TestOtaVersionCheck? onTestOtaVersionCheck;
+  final LoadChatStorageUsage? loadStorageUsage;
 
   @override
   State<ChatSettingsPage> createState() => _ChatSettingsPageState();
@@ -207,17 +209,58 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 title: '数据设置',
                 children: <Widget>[
                   SettingsRow(
-                    key: const Key('settings_row_data_backup'),
+                    key: const Key('settings_row_storage_space'),
                     icon: Icons.storage_outlined,
-                    title: '数据备份',
-                    onTap: _openDataBackup,
-                  ),
-                  SettingsRow(
-                    key: const Key('settings_row_chat_storage'),
-                    icon: Icons.inventory_2_outlined,
-                    title: '聊天记录存储',
+                    title: '存储空间',
                     value: appSettings.storage.summary,
                     onTap: _openChatStorage,
+                  ),
+                  SettingsRow(
+                    key: const Key('settings_row_backup_restore'),
+                    icon: Icons.backup_outlined,
+                    title: '备份与恢复',
+                    onTap: _openBackupRestore,
+                  ),
+                ],
+              ),
+              SettingsSection(
+                title: '关于',
+                children: <Widget>[
+                  SettingsRow(
+                    key: const Key('settings_row_about'),
+                    icon: Icons.info_outline,
+                    title: '关于',
+                    onTap: () => _openPlaceholderPage(
+                      title: '关于',
+                      icon: Icons.info_outline,
+                    ),
+                  ),
+                  SettingsRow(
+                    key: const Key('settings_row_statistics'),
+                    icon: Icons.bar_chart_outlined,
+                    title: '统计',
+                    onTap: () => _openPlaceholderPage(
+                      title: '统计',
+                      icon: Icons.bar_chart_outlined,
+                    ),
+                  ),
+                  SettingsRow(
+                    key: const Key('settings_row_docs'),
+                    icon: Icons.article_outlined,
+                    title: '使用文档',
+                    onTap: () => _openPlaceholderPage(
+                      title: '使用文档',
+                      icon: Icons.article_outlined,
+                    ),
+                  ),
+                  SettingsRow(
+                    key: const Key('settings_row_sponsor'),
+                    icon: Icons.favorite_border,
+                    title: '赞助',
+                    onTap: () => _openPlaceholderPage(
+                      title: '赞助',
+                      icon: Icons.favorite_border,
+                    ),
                   ),
                 ],
               ),
@@ -371,14 +414,28 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
-  void _openDataBackup() {
+  void _openChatStorage() {
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (context) => DataBackupPage(
-            settings: _appSettingsController.settings,
+          builder: (context) => ChatStoragePage(
+            loadStorageUsage: widget.loadStorageUsage,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openBackupRestore() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => BackupRestorePage(
+            settings: _appSettingsController.settings.storage,
+            appSettings: _appSettingsController.settings,
             connectionSettings: _settings,
             displaySettings: _currentDisplaySettings,
+            onChanged: _appSettingsController.updateStorage,
             onAppSettingsImported: _appSettingsController.update,
             onConnectionSettingsImported: _applySettings,
             onDisplaySettingsImported: _applyDisplaySettings,
@@ -388,13 +445,16 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
-  void _openChatStorage() {
+  void _openPlaceholderPage({
+    required String title,
+    required IconData icon,
+  }) {
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (context) => ChatStoragePage(
-            settings: _appSettingsController.settings.storage,
-            onChanged: _appSettingsController.updateStorage,
+          builder: (context) => _SettingsPlaceholderPage(
+            title: title,
+            icon: icon,
           ),
         ),
       ),
@@ -423,6 +483,36 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 
   String _otaSummary(ChatOtaSettings settings) {
     return '${settings.channel} · ${settings.autoCheck ? '自动' : '手动'}';
+  }
+}
+
+class _SettingsPlaceholderPage extends StatelessWidget {
+  const _SettingsPlaceholderPage({
+    required this.title,
+    required this.icon,
+  });
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsScreenFrame(
+      title: title,
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        children: <Widget>[
+          SettingsEmptyState(
+            icon: icon,
+            title: title,
+            subtitle: '内容暂未配置',
+          ),
+        ],
+      ),
+    );
   }
 }
 
