@@ -54,10 +54,13 @@ class _WorldBookPageState extends State<WorldBookPage> {
           key: const Key('add_world_book_entry_button'),
           tooltip: '添加世界书条目',
           onPressed: _addEntry,
-          icon: const Icon(Icons.add, size: 30),
+          icon: const Icon(Icons.add, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           SettingsFormPanel(
@@ -210,12 +213,9 @@ class _WorldBookEntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(settingsCardRadius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 18, 10, 18),
@@ -225,7 +225,7 @@ class _WorldBookEntryTile extends StatelessWidget {
                 Icons.auto_stories_outlined,
                 color: entry.enabled
                     ? Theme.of(context).colorScheme.primary
-                    : settingsSecondaryText,
+                    : settingsSecondaryTextColor(context),
                 size: 30,
               ),
               const SizedBox(width: 16),
@@ -238,9 +238,10 @@ class _WorldBookEntryTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: settingsPrimaryText,
+                            color: settingsPrimaryTextColor(context),
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
                           ),
                     ),
                     const SizedBox(height: 6),
@@ -251,9 +252,10 @@ class _WorldBookEntryTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: settingsSecondaryText,
+                            color: settingsSecondaryTextColor(context),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                           ),
                     ),
                     const SizedBox(height: 6),
@@ -262,9 +264,10 @@ class _WorldBookEntryTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: settingsSecondaryText,
+                            color: settingsSecondaryTextColor(context),
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                           ),
                     ),
                   ],
@@ -344,8 +347,9 @@ class _WorldBookEntrySheetState extends State<WorldBookEntrySheet> {
                   widget.initialEntry == null ? '添加世界书条目' : '编辑世界书条目',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: settingsPrimaryText,
+                        color: settingsPrimaryTextColor(context),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                 ),
                 const SizedBox(height: 20),

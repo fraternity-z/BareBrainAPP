@@ -60,6 +60,13 @@ class ChatDisplaySettings {
     this.showMessageActions = true,
     this.compactMessageSpacing = false,
     this.selectableMessageText = true,
+    this.inlineMathRendering = true,
+    this.mathEquationRendering = true,
+    this.userMessageMarkdownRendering = true,
+    this.reasoningMarkdownRendering = true,
+    this.assistantMessageMarkdownRendering = true,
+    this.autoFoldCodeBlocks = false,
+    this.mobileCodeBlockAutoWrap = false,
     this.hapticFeedback = true,
     this.messageBackground = ChatMessageBackground.standard,
     this.appFont = ChatAppFont.system,
@@ -78,6 +85,13 @@ class ChatDisplaySettings {
   final bool showMessageActions;
   final bool compactMessageSpacing;
   final bool selectableMessageText;
+  final bool inlineMathRendering;
+  final bool mathEquationRendering;
+  final bool userMessageMarkdownRendering;
+  final bool reasoningMarkdownRendering;
+  final bool assistantMessageMarkdownRendering;
+  final bool autoFoldCodeBlocks;
+  final bool mobileCodeBlockAutoWrap;
   final bool hapticFeedback;
   final ChatMessageBackground messageBackground;
   final ChatAppFont appFont;
@@ -95,6 +109,13 @@ class ChatDisplaySettings {
     bool? showMessageActions,
     bool? compactMessageSpacing,
     bool? selectableMessageText,
+    bool? inlineMathRendering,
+    bool? mathEquationRendering,
+    bool? userMessageMarkdownRendering,
+    bool? reasoningMarkdownRendering,
+    bool? assistantMessageMarkdownRendering,
+    bool? autoFoldCodeBlocks,
+    bool? mobileCodeBlockAutoWrap,
     bool? hapticFeedback,
     ChatMessageBackground? messageBackground,
     ChatAppFont? appFont,
@@ -116,6 +137,18 @@ class ChatDisplaySettings {
           compactMessageSpacing ?? this.compactMessageSpacing,
       selectableMessageText:
           selectableMessageText ?? this.selectableMessageText,
+      inlineMathRendering: inlineMathRendering ?? this.inlineMathRendering,
+      mathEquationRendering:
+          mathEquationRendering ?? this.mathEquationRendering,
+      userMessageMarkdownRendering:
+          userMessageMarkdownRendering ?? this.userMessageMarkdownRendering,
+      reasoningMarkdownRendering:
+          reasoningMarkdownRendering ?? this.reasoningMarkdownRendering,
+      assistantMessageMarkdownRendering: assistantMessageMarkdownRendering ??
+          this.assistantMessageMarkdownRendering,
+      autoFoldCodeBlocks: autoFoldCodeBlocks ?? this.autoFoldCodeBlocks,
+      mobileCodeBlockAutoWrap:
+          mobileCodeBlockAutoWrap ?? this.mobileCodeBlockAutoWrap,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
       messageBackground: messageBackground ?? this.messageBackground,
       appFont: appFont ?? this.appFont,
@@ -178,6 +211,15 @@ class ChatDisplaySettings {
             other.showMessageActions == showMessageActions &&
             other.compactMessageSpacing == compactMessageSpacing &&
             other.selectableMessageText == selectableMessageText &&
+            other.inlineMathRendering == inlineMathRendering &&
+            other.mathEquationRendering == mathEquationRendering &&
+            other.userMessageMarkdownRendering ==
+                userMessageMarkdownRendering &&
+            other.reasoningMarkdownRendering == reasoningMarkdownRendering &&
+            other.assistantMessageMarkdownRendering ==
+                assistantMessageMarkdownRendering &&
+            other.autoFoldCodeBlocks == autoFoldCodeBlocks &&
+            other.mobileCodeBlockAutoWrap == mobileCodeBlockAutoWrap &&
             other.hapticFeedback == hapticFeedback &&
             other.messageBackground == messageBackground &&
             other.appFont == appFont &&
@@ -189,7 +231,7 @@ class ChatDisplaySettings {
 
   @override
   int get hashCode {
-    return Object.hash(
+    return Object.hashAll(<Object?>[
       colorMode,
       themePreset,
       showMessageAvatars,
@@ -198,6 +240,13 @@ class ChatDisplaySettings {
       showMessageActions,
       compactMessageSpacing,
       selectableMessageText,
+      inlineMathRendering,
+      mathEquationRendering,
+      userMessageMarkdownRendering,
+      reasoningMarkdownRendering,
+      assistantMessageMarkdownRendering,
+      autoFoldCodeBlocks,
+      mobileCodeBlockAutoWrap,
       hapticFeedback,
       messageBackground,
       appFont,
@@ -205,6 +254,6 @@ class ChatDisplaySettings {
       messageFontScale,
       autoScrollDelay,
       backgroundMaskOpacity,
-    );
+    ]);
   }
 }

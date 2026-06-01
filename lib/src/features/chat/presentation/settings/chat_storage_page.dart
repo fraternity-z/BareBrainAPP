@@ -50,6 +50,9 @@ class _ChatStoragePageState extends State<ChatStoragePage> {
     return SettingsScreenFrame(
       title: '聊天记录存储',
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           SettingsFormPanel(

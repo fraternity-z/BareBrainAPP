@@ -49,6 +49,9 @@ class _DataBackupPageState extends State<DataBackupPage> {
     return SettingsScreenFrame(
       title: '数据备份',
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           SettingsFormPanel(

@@ -86,10 +86,13 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
           key: const Key('network_proxy_save_button'),
           tooltip: '保存',
           onPressed: _save,
-          icon: const Icon(Icons.check, size: 30),
+          icon: const Icon(Icons.check, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           _ProxyCard(
@@ -104,9 +107,10 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: settingsPrimaryText,
+                              color: settingsPrimaryTextColor(context),
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
                             ),
                       ),
                     ),
@@ -197,9 +201,10 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                 Text(
                   '代理设置会应用于 BareBrain WebSocket、语音 HTTP 和 OTA 版本检查，命中绕过规则时使用直连。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: settingsSecondaryText,
+                        color: settingsSecondaryTextColor(context),
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
                       ),
                 ),
               ],
@@ -211,9 +216,10 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
             child: Text(
               '连接测试',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: settingsPrimaryText,
-                    fontSize: 22,
+                    color: settingsSecondaryTextColor(context),
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
             ),
           ),
@@ -235,10 +241,10 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                     key: const Key('proxy_test_button'),
                     onPressed: _isTesting ? null : _testConnection,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xfff0f0f1),
-                      foregroundColor: settingsPrimaryText,
+                      backgroundColor: settingsPageBackgroundColor(context),
+                      foregroundColor: settingsPrimaryTextColor(context),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(settingsCardRadius),
                       ),
                       textStyle:
                           Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -431,10 +437,7 @@ class _ProxyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
         child: child,
@@ -455,9 +458,10 @@ class _ProxyFieldLabel extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: settingsSecondaryText,
+              color: settingsSecondaryTextColor(context),
               fontSize: 18,
               fontWeight: FontWeight.w600,
+              letterSpacing: 0,
             ),
       ),
     );
@@ -500,9 +504,10 @@ class _ProxyTextField extends StatelessWidget {
       maxLines: obscureText ? 1 : maxLines,
       onChanged: onChanged,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: settingsPrimaryText,
+            color: settingsPrimaryTextColor(context),
             fontSize: 20,
             fontWeight: FontWeight.w500,
+            letterSpacing: 0,
           ),
     );
   }
@@ -573,13 +578,13 @@ InputDecoration _fieldDecoration(
   BuildContext context, {
   String? hintText,
 }) {
-  const fillColor = Color(0xfff7f7f9);
-  const borderColor = Color(0xfff0f0f3);
+  final fillColor = settingsCardBackgroundColor(context);
+  final borderColor = settingsDividerColorFor(context);
   final textTheme = Theme.of(context).textTheme;
 
   OutlineInputBorder border(Color color) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(settingsCardRadius),
       borderSide: BorderSide(color: color),
     );
   }
@@ -590,12 +595,13 @@ InputDecoration _fieldDecoration(
     fillColor: fillColor,
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
     hintStyle: textTheme.titleMedium?.copyWith(
-      color: const Color(0xff9b9ba3),
+      color: settingsSecondaryTextColor(context),
       fontSize: 20,
       fontWeight: FontWeight.w500,
+      letterSpacing: 0,
     ),
     enabledBorder: border(borderColor),
-    focusedBorder: border(settingsPrimaryText),
+    focusedBorder: border(settingsPrimaryTextColor(context)),
     border: border(borderColor),
   );
 }

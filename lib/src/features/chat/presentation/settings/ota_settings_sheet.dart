@@ -69,8 +69,9 @@ class _OtaSettingsSheetState extends State<OtaSettingsSheet> {
                   'OTA 参数',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: settingsPrimaryText,
+                        color: settingsPrimaryTextColor(context),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                 ),
                 const SizedBox(height: 20),

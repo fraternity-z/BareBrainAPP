@@ -45,13 +45,7 @@ class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
           key: const Key('add_quick_phrase_button'),
           tooltip: '添加快捷短语',
           onPressed: _addPhrase,
-          style: IconButton.styleFrom(
-            foregroundColor: Colors.black,
-            backgroundColor: Colors.transparent,
-            fixedSize: const Size.square(42),
-            shape: const CircleBorder(),
-          ),
-          icon: const Icon(Icons.add, size: 32),
+          icon: const Icon(Icons.add, size: 24),
         ),
       ],
       child: _phrases.isEmpty
@@ -64,6 +58,9 @@ class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
               ),
             )
           : ListView.separated(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
               itemCount: _phrases.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -155,12 +152,9 @@ class _QuickPhraseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(settingsCardRadius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 10, 18),
@@ -170,7 +164,7 @@ class _QuickPhraseTile extends StatelessWidget {
                 Icons.flash_on_outlined,
                 color: phrase.enabled
                     ? Theme.of(context).colorScheme.primary
-                    : settingsSecondaryText,
+                    : settingsSecondaryTextColor(context),
                 size: 32,
               ),
               const SizedBox(width: 18),
@@ -183,9 +177,10 @@ class _QuickPhraseTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: settingsPrimaryText,
+                            color: settingsPrimaryTextColor(context),
                             fontSize: 21,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
                           ),
                     ),
                     const SizedBox(height: 8),
@@ -194,9 +189,10 @@ class _QuickPhraseTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: settingsSecondaryText,
+                            color: settingsSecondaryTextColor(context),
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                           ),
                     ),
                   ],
@@ -279,8 +275,9 @@ class _QuickPhraseSheetState extends State<QuickPhraseSheet> {
                   widget.initialPhrase == null ? '添加快捷短语' : '编辑快捷短语',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: settingsPrimaryText,
+                        color: settingsPrimaryTextColor(context),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                 ),
                 const SizedBox(height: 20),

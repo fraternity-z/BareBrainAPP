@@ -28,6 +28,14 @@ class ChatDisplaySettingsCodec {
       'showMessageActions': settings.showMessageActions,
       'compactMessageSpacing': settings.compactMessageSpacing,
       'selectableMessageText': settings.selectableMessageText,
+      'inlineMathRendering': settings.inlineMathRendering,
+      'mathEquationRendering': settings.mathEquationRendering,
+      'userMessageMarkdownRendering': settings.userMessageMarkdownRendering,
+      'reasoningMarkdownRendering': settings.reasoningMarkdownRendering,
+      'assistantMessageMarkdownRendering':
+          settings.assistantMessageMarkdownRendering,
+      'autoFoldCodeBlocks': settings.autoFoldCodeBlocks,
+      'mobileCodeBlockAutoWrap': settings.mobileCodeBlockAutoWrap,
       'hapticFeedback': settings.hapticFeedback,
       'messageBackground': settings.messageBackground.name,
       'appFont': settings.appFont.name,
@@ -74,6 +82,34 @@ class ChatDisplaySettingsCodec {
       selectableMessageText: _boolValue(
         value['selectableMessageText'],
         defaults.selectableMessageText,
+      ),
+      inlineMathRendering: _boolValue(
+        value['inlineMathRendering'],
+        defaults.inlineMathRendering,
+      ),
+      mathEquationRendering: _boolValue(
+        value['mathEquationRendering'],
+        defaults.mathEquationRendering,
+      ),
+      userMessageMarkdownRendering: _boolValue(
+        value['userMessageMarkdownRendering'],
+        defaults.userMessageMarkdownRendering,
+      ),
+      reasoningMarkdownRendering: _boolValue(
+        value['reasoningMarkdownRendering'],
+        defaults.reasoningMarkdownRendering,
+      ),
+      assistantMessageMarkdownRendering: _boolValue(
+        value['assistantMessageMarkdownRendering'],
+        defaults.assistantMessageMarkdownRendering,
+      ),
+      autoFoldCodeBlocks: _boolValue(
+        value['autoFoldCodeBlocks'],
+        defaults.autoFoldCodeBlocks,
+      ),
+      mobileCodeBlockAutoWrap: _boolValue(
+        value['mobileCodeBlockAutoWrap'],
+        defaults.mobileCodeBlockAutoWrap,
       ),
       hapticFeedback: _boolValue(
         value['hapticFeedback'],

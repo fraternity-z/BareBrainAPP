@@ -2,11 +2,42 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const Color settingsPageBackground = Color(0xfffbfafd);
+const double settingsCardRadius = 8;
+const Color settingsPageBackground = Color(0xfff4f4f5);
 const Color settingsCardBackground = Colors.white;
-const Color settingsPrimaryText = Color(0xff303036);
-const Color settingsSecondaryText = Color(0xff85858d);
-const Color settingsDividerColor = Color(0xfff0f0f3);
+const Color settingsPrimaryText = Color(0xff171717);
+const Color settingsSecondaryText = Color(0xff6d6d72);
+const Color settingsDividerColor = Color(0xffe7e7ea);
+
+Color settingsPageBackgroundColor(BuildContext context) {
+  return _SettingsPalette.of(context).background;
+}
+
+Color settingsCardBackgroundColor(BuildContext context) {
+  return _SettingsPalette.of(context).card;
+}
+
+Color settingsPrimaryTextColor(BuildContext context) {
+  return _SettingsPalette.of(context).textStrong;
+}
+
+Color settingsSecondaryTextColor(BuildContext context) {
+  return _SettingsPalette.of(context).textSoft;
+}
+
+Color settingsDividerColorFor(BuildContext context) {
+  return _SettingsPalette.of(context).divider;
+}
+
+BoxDecoration settingsCardDecoration(BuildContext context) {
+  final palette = _SettingsPalette.of(context);
+  return BoxDecoration(
+    color: palette.card,
+    borderRadius: BorderRadius.circular(settingsCardRadius),
+    border: Border.all(color: palette.divider),
+    boxShadow: palette.cardShadow,
+  );
+}
 
 class SettingsScreenFrame extends StatelessWidget {
   const SettingsScreenFrame({
@@ -22,8 +53,9 @@ class SettingsScreenFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
     return Scaffold(
-      backgroundColor: settingsPageBackground,
+      backgroundColor: palette.background,
       body: SafeArea(
         child: Column(
           children: <Widget>[
@@ -48,38 +80,57 @@ class SettingsTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 88,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(26, 10, 26, 8),
-        child: Row(
-          children: <Widget>[
-            IconButton(
-              tooltip: '返回',
-              onPressed: () => Navigator.of(context).maybePop(),
-              style: IconButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.transparent,
-                fixedSize: const Size.square(42),
-                shape: const CircleBorder(),
+    final palette = _SettingsPalette.of(context);
+    final buttonStyle = IconButton.styleFrom(
+      foregroundColor: palette.textStrong,
+      backgroundColor: palette.card,
+      fixedSize: const Size.square(42),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(settingsCardRadius),
+      ),
+      side: BorderSide(color: palette.divider),
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: palette.background),
+      child: SizedBox(
+        height: 88,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+          child: Row(
+            children: <Widget>[
+              IconButton(
+                tooltip: '返回',
+                onPressed: () => Navigator.of(context).maybePop(),
+                style: buttonStyle,
+                icon: const Icon(Icons.arrow_back, size: 24),
               ),
-              icon: const Icon(Icons.arrow_back, size: 30),
-            ),
-            const SizedBox(width: 28),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.black,
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                    ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: palette.textStrong,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                ),
               ),
-            ),
-            ...actions,
-          ],
+              if (actions.isNotEmpty) ...<Widget>[
+                const SizedBox(width: 12),
+                IconButtonTheme(
+                  data: IconButtonThemeData(style: buttonStyle),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actions,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -100,31 +151,30 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, topPadding, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.only(left: 12, bottom: 12),
+            padding: const EdgeInsets.only(left: 2, bottom: 10),
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xff56565f),
-                    fontSize: 20,
+                    color: palette.textSoft,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
             ),
           ),
           DecoratedBox(
-            decoration: BoxDecoration(
-              color: settingsCardBackground,
-              borderRadius: BorderRadius.circular(22),
-            ),
+            decoration: settingsCardDecoration(context),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(settingsCardRadius),
               child: Column(
-                children: _withDividers(children),
+                children: _withDividers(context, children),
               ),
             ),
           ),
@@ -133,18 +183,19 @@ class SettingsSection extends StatelessWidget {
     );
   }
 
-  List<Widget> _withDividers(List<Widget> source) {
+  List<Widget> _withDividers(BuildContext context, List<Widget> source) {
+    final palette = _SettingsPalette.of(context);
     final widgets = <Widget>[];
     for (var index = 0; index < source.length; index++) {
       widgets.add(source[index]);
       if (index < source.length - 1) {
         widgets.add(
-          const Divider(
+          Divider(
             height: 1,
             thickness: 1,
-            color: settingsDividerColor,
+            color: palette.divider,
             indent: 74,
-            endIndent: 20,
+            endIndent: 18,
           ),
         );
       }
@@ -159,7 +210,7 @@ class SettingsRow extends StatelessWidget {
     required this.title,
     this.value,
     this.onTap,
-    this.iconColor = settingsPrimaryText,
+    this.iconColor,
     super.key,
   });
 
@@ -167,32 +218,33 @@ class SettingsRow extends StatelessWidget {
   final String title;
   final String? value;
   final VoidCallback? onTap;
-  final Color iconColor;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 74),
+          constraints: const BoxConstraints(minHeight: 70),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 18, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final valueMaxWidth = math.min(
-                  constraints.maxWidth * 0.38,
-                  280.0,
+                  constraints.maxWidth * 0.36,
+                  220.0,
                 );
 
                 return Row(
                   children: <Widget>[
-                    SizedBox.square(
-                      dimension: 34,
-                      child: Icon(icon, size: 30, color: iconColor),
+                    _SettingsIconBox(
+                      icon: icon,
+                      iconColor: iconColor ?? palette.textStrong,
                     ),
-                    const SizedBox(width: 28),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Text(
                         title,
@@ -200,9 +252,10 @@ class SettingsRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: settingsPrimaryText,
-                                  fontSize: 21,
+                                  color: palette.textStrong,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
                                 ),
                       ),
                     ),
@@ -216,19 +269,20 @@ class SettingsRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.right,
                           style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: settingsSecondaryText,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: palette.textSoft,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
                                   ),
                         ),
                       ),
                     ],
-                    const SizedBox(width: 10),
-                    const Icon(
+                    const SizedBox(width: 8),
+                    Icon(
                       Icons.chevron_right,
-                      size: 30,
-                      color: settingsPrimaryText,
+                      size: 24,
+                      color: palette.textSoft,
                     ),
                   ],
                 );
@@ -259,21 +313,19 @@ class SettingsSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged(!value),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 74),
+          constraints: const BoxConstraints(minHeight: 70),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 18, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
             child: Row(
               children: <Widget>[
-                SizedBox.square(
-                  dimension: 34,
-                  child: Icon(icon, size: 30, color: settingsPrimaryText),
-                ),
-                const SizedBox(width: 28),
+                _SettingsIconBox(icon: icon),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -285,9 +337,10 @@ class SettingsSwitchRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: settingsPrimaryText,
-                                  fontSize: 21,
+                                  color: palette.textStrong,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
                                 ),
                       ),
                       if (subtitle != null) ...<Widget>[
@@ -298,15 +351,17 @@ class SettingsSwitchRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style:
                               Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: settingsSecondaryText,
-                                    fontSize: 15,
+                                    color: palette.textSoft,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
+                                    letterSpacing: 0,
                                   ),
                         ),
                       ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
                 Switch(value: value, onChanged: onChanged),
               ],
             ),
@@ -328,11 +383,7 @@ class SettingsFormPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: settingsDividerColor),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -366,7 +417,7 @@ class SettingsFeedbackBanner extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(settingsCardRadius),
         border: Border.all(color: border, width: 0.7),
       ),
       child: Padding(
@@ -387,6 +438,7 @@ class SettingsFeedbackBanner extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: foreground,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
                     ),
               ),
             ),
@@ -411,24 +463,23 @@ class SettingsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 28, 22, 28),
         child: Column(
           children: <Widget>[
-            Icon(icon, size: 38, color: settingsSecondaryText),
+            _SettingsIconBox(icon: icon, dimension: 46, iconSize: 26),
             const SizedBox(height: 14),
             Text(
               title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: settingsPrimaryText,
-                    fontSize: 20,
+                    color: palette.textStrong,
+                    fontSize: 19,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
             ),
             const SizedBox(height: 8),
@@ -436,14 +487,100 @@ class SettingsEmptyState extends StatelessWidget {
               subtitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: settingsSecondaryText,
-                    fontSize: 16,
+                    color: palette.textSoft,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
                   ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SettingsIconBox extends StatelessWidget {
+  const _SettingsIconBox({
+    required this.icon,
+    this.iconColor,
+    this.dimension = 42,
+    this.iconSize = 23,
+  });
+
+  final IconData icon;
+  final Color? iconColor;
+  final double dimension;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _SettingsPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.iconBackground,
+        borderRadius: BorderRadius.circular(settingsCardRadius),
+        border: Border.all(color: palette.divider),
+      ),
+      child: SizedBox.square(
+        dimension: dimension,
+        child: Icon(
+          icon,
+          size: iconSize,
+          color: iconColor ?? palette.textStrong,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsPalette {
+  const _SettingsPalette({
+    required this.background,
+    required this.card,
+    required this.iconBackground,
+    required this.textStrong,
+    required this.textSoft,
+    required this.divider,
+    required this.cardShadow,
+  });
+
+  final Color background;
+  final Color card;
+  final Color iconBackground;
+  final Color textStrong;
+  final Color textSoft;
+  final Color divider;
+  final List<BoxShadow> cardShadow;
+
+  static _SettingsPalette of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      return const _SettingsPalette(
+        background: Color(0xff101011),
+        card: Color(0xff1b1b1d),
+        iconBackground: Color(0xff242426),
+        textStrong: Color(0xfff4f4f5),
+        textSoft: Color(0xffa6a6aa),
+        divider: Color(0xff303034),
+        cardShadow: <BoxShadow>[],
+      );
+    }
+
+    return _SettingsPalette(
+      background: settingsPageBackground,
+      card: settingsCardBackground,
+      iconBackground: const Color(0xfff2f2f3),
+      textStrong: settingsPrimaryText,
+      textSoft: settingsSecondaryText,
+      divider: settingsDividerColor,
+      cardShadow: <BoxShadow>[
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.045),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+        ),
+      ],
     );
   }
 }

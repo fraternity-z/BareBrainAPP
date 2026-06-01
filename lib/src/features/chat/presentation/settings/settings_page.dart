@@ -106,6 +106,9 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
         return SettingsScreenFrame(
           title: '设置',
           child: ListView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             padding: const EdgeInsets.only(bottom: 32),
             children: <Widget>[
               if (displaySettingsError != null) ...<Widget>[

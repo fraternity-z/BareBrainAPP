@@ -69,10 +69,13 @@ class _VoiceServicePageState extends State<VoiceServicePage> {
           key: const Key('voice_service_save_button'),
           tooltip: '保存',
           onPressed: _save,
-          icon: const Icon(Icons.check, size: 30),
+          icon: const Icon(Icons.check, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           SettingsFormPanel(

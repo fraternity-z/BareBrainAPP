@@ -43,10 +43,13 @@ class _PromptInjectionPageState extends State<PromptInjectionPage> {
           key: const Key('add_prompt_rule_button'),
           tooltip: '添加指令',
           onPressed: _addRule,
-          icon: const Icon(Icons.add, size: 30),
+          icon: const Icon(Icons.add, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           SettingsFormPanel(
@@ -165,12 +168,9 @@ class _PromptRuleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(settingsCardRadius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 18, 10, 18),
@@ -180,7 +180,7 @@ class _PromptRuleTile extends StatelessWidget {
                 Icons.layers_outlined,
                 color: rule.enabled
                     ? Theme.of(context).colorScheme.primary
-                    : settingsSecondaryText,
+                    : settingsSecondaryTextColor(context),
                 size: 30,
               ),
               const SizedBox(width: 16),
@@ -193,9 +193,10 @@ class _PromptRuleTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: settingsPrimaryText,
+                            color: settingsPrimaryTextColor(context),
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
                           ),
                     ),
                     const SizedBox(height: 6),
@@ -204,9 +205,10 @@ class _PromptRuleTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: settingsSecondaryText,
+                            color: settingsSecondaryTextColor(context),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                           ),
                     ),
                     const SizedBox(height: 6),
@@ -215,9 +217,10 @@ class _PromptRuleTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: settingsSecondaryText,
+                            color: settingsSecondaryTextColor(context),
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                           ),
                     ),
                   ],
@@ -296,8 +299,9 @@ class _PromptRuleSheetState extends State<PromptRuleSheet> {
                   widget.initialRule == null ? '添加注入指令' : '编辑注入指令',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: settingsPrimaryText,
+                        color: settingsPrimaryTextColor(context),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                 ),
                 const SizedBox(height: 20),

@@ -47,10 +47,13 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
           key: const Key('display_reset_button'),
           tooltip: '恢复默认',
           onPressed: _resetSettings,
-          icon: const Icon(Icons.restart_alt, size: 30),
+          icon: const Icon(Icons.restart_alt, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
           _DisplaySettingsCard(
@@ -194,72 +197,76 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
   }
 
   Future<void> _openMessageFontScale() {
-    return _showChoiceSheet<double>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '聊天字体大小',
-      selected: _settings.messageFontScale,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(key: 'message_font_90', label: '90%', value: 0.90),
-        _ChoiceItem<double>(key: 'message_font_100', label: '100%', value: 1.0),
-        _ChoiceItem<double>(key: 'message_font_110', label: '110%', value: 1.1),
-        _ChoiceItem<double>(
-            key: 'message_font_125', label: '125%', value: 1.25),
-        _ChoiceItem<double>(key: 'message_font_140', label: '140%', value: 1.4),
+      value: _settings.messageFontScale * 100,
+      min: 90,
+      max: 140,
+      divisions: 50,
+      sliderKey: const Key('message_font_scale_slider'),
+      valueLabelBuilder: _formatPercentSliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(90, '90%'),
+        _SliderTickLabel(100, '100%'),
+        _SliderTickLabel(110, '110%'),
+        _SliderTickLabel(120, '120%'),
+        _SliderTickLabel(130, '130%'),
+        _SliderTickLabel(140, '140%'),
       ],
-      onSelected: (scale) {
-        _update(_settings.copyWith(messageFontScale: scale));
+      onChanged: (value) {
+        _update(_settings.copyWith(messageFontScale: value / 100));
       },
     );
   }
 
   Future<void> _openAutoScrollDelay() {
-    return _showChoiceSheet<Duration>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '自动回到底部延迟',
-      selected: _settings.autoScrollDelay,
-      items: const <_ChoiceItem<Duration>>[
-        _ChoiceItem<Duration>(
-          key: 'auto_scroll_0',
-          label: '立即',
-          value: Duration.zero,
-        ),
-        _ChoiceItem<Duration>(
-          key: 'auto_scroll_2',
-          label: '2s',
-          value: Duration(seconds: 2),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'auto_scroll_5',
-          label: '5s',
-          value: Duration(seconds: 5),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'auto_scroll_8',
-          label: '8s',
-          value: Duration(seconds: 8),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'auto_scroll_12',
-          label: '12s',
-          value: Duration(seconds: 12),
-        ),
+      value: _settings.autoScrollDelay.inSeconds.toDouble(),
+      min: 0,
+      max: 60,
+      divisions: 60,
+      sliderKey: const Key('auto_scroll_delay_slider'),
+      subtitle: '用户停止滚动后等待多久再自动回到底部',
+      valueLabelBuilder: _formatDelaySliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(0, '立即'),
+        _SliderTickLabel(15, '15s'),
+        _SliderTickLabel(30, '30s'),
+        _SliderTickLabel(45, '45s'),
+        _SliderTickLabel(60, '60s'),
       ],
-      onSelected: (delay) {
-        _update(_settings.copyWith(autoScrollDelay: delay));
+      onChanged: (value) {
+        _update(
+          _settings.copyWith(
+            autoScrollDelay: Duration(seconds: value.round()),
+          ),
+        );
       },
     );
   }
 
   Future<void> _openBackgroundMaskOpacity() {
-    return _showChoiceSheet<double>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '聊天背景遮罩透明度',
-      selected: _settings.backgroundMaskOpacity,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(key: 'mask_0', label: '0%', value: 0.0),
-        _ChoiceItem<double>(key: 'mask_50', label: '50%', value: 0.5),
-        _ChoiceItem<double>(key: 'mask_75', label: '75%', value: 0.75),
-        _ChoiceItem<double>(key: 'mask_100', label: '100%', value: 1.0),
+      value: _settings.backgroundMaskOpacity * 100,
+      min: 0,
+      max: 100,
+      divisions: 100,
+      sliderKey: const Key('background_mask_opacity_slider'),
+      valueLabelBuilder: _formatPercentSliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(0, '0%'),
+        _SliderTickLabel(25, '25%'),
+        _SliderTickLabel(50, '50%'),
+        _SliderTickLabel(75, '75%'),
+        _SliderTickLabel(100, '100%'),
       ],
-      onSelected: (opacity) {
-        _update(_settings.copyWith(backgroundMaskOpacity: opacity));
+      onChanged: (value) {
+        _update(_settings.copyWith(backgroundMaskOpacity: value / 100));
       },
     );
   }
@@ -357,8 +364,17 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
   }
 
   String _renderingSummary() {
-    final text = _settings.selectableMessageText ? '可选文本' : '普通文本';
-    return '$text · ${_settings.messageFontScaleLabel}';
+    final enabledCount = <bool>[
+      _settings.inlineMathRendering,
+      _settings.mathEquationRendering,
+      _settings.userMessageMarkdownRendering,
+      _settings.reasoningMarkdownRendering,
+      _settings.assistantMessageMarkdownRendering,
+      _settings.autoFoldCodeBlocks,
+      _settings.mobileCodeBlockAutoWrap,
+    ].where((enabled) => enabled).length;
+
+    return '$enabledCount 项启用';
   }
 
   String _behaviorSummary() {
@@ -417,10 +433,13 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
           key: const Key('theme_reset_button'),
           tooltip: '恢复默认',
           onPressed: _resetSettings,
-          icon: const Icon(Icons.restart_alt, size: 30),
+          icon: const Icon(Icons.restart_alt, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(bottom: 32),
         children: <Widget>[
           Padding(
@@ -498,33 +517,24 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
   }
 
   Future<void> _openBackgroundMaskOpacity() {
-    return _showChoiceSheet<double>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '聊天背景遮罩透明度',
-      selected: _settings.backgroundMaskOpacity,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(
-          key: 'theme_mask_0',
-          label: '0%',
-          value: 0.0,
-        ),
-        _ChoiceItem<double>(
-          key: 'theme_mask_50',
-          label: '50%',
-          value: 0.5,
-        ),
-        _ChoiceItem<double>(
-          key: 'theme_mask_75',
-          label: '75%',
-          value: 0.75,
-        ),
-        _ChoiceItem<double>(
-          key: 'theme_mask_100',
-          label: '100%',
-          value: 1.0,
-        ),
+      value: _settings.backgroundMaskOpacity * 100,
+      min: 0,
+      max: 100,
+      divisions: 100,
+      sliderKey: const Key('theme_background_mask_opacity_slider'),
+      valueLabelBuilder: _formatPercentSliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(0, '0%'),
+        _SliderTickLabel(25, '25%'),
+        _SliderTickLabel(50, '50%'),
+        _SliderTickLabel(75, '75%'),
+        _SliderTickLabel(100, '100%'),
       ],
-      onSelected: (opacity) {
-        _update(_settings.copyWith(backgroundMaskOpacity: opacity));
+      onChanged: (value) {
+        _update(_settings.copyWith(backgroundMaskOpacity: value / 100));
       },
     );
   }
@@ -608,65 +618,93 @@ class _RenderingDisplaySettingsPageState
   Widget build(BuildContext context) {
     return SettingsScreenFrame(
       title: '渲染设置',
-      actions: <Widget>[
-        IconButton(
-          key: const Key('rendering_reset_button'),
-          tooltip: '恢复默认',
-          onPressed: _resetSettings,
-          icon: const Icon(Icons.restart_alt, size: 30),
-        ),
-      ],
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: _RenderingPreviewCard(settings: _settings),
-          ),
-          SettingsSection(
-            title: '文本渲染',
+          _RenderingSettingsCard(
             children: <Widget>[
-              SettingsSwitchRow(
-                key: const Key('rendering_selectable_text_row'),
-                icon: Icons.text_fields,
-                title: '消息文本可选择',
-                value: _settings.selectableMessageText,
+              _RenderingSwitchRow(
+                key: const Key('rendering_inline_math_row'),
+                switchKey: const Key('rendering_inline_math_switch'),
+                icon: const _RenderingTextIcon('#'),
+                title: '启用 \$...\$ 渲染',
+                value: _settings.inlineMathRendering,
                 onChanged: (value) {
-                  _update(_settings.copyWith(selectableMessageText: value));
+                  _update(_settings.copyWith(inlineMathRendering: value));
                 },
               ),
-              SettingsRow(
-                key: const Key('rendering_message_font_scale_row'),
-                icon: Icons.text_increase,
-                title: '聊天字体大小',
-                value: _settings.messageFontScaleLabel,
-                onTap: () => unawaited(_openMessageFontScale()),
+              _RenderingSwitchRow(
+                key: const Key('rendering_math_equation_row'),
+                switchKey: const Key('rendering_math_equation_switch'),
+                icon: const _RenderingTextIcon('<>'),
+                title: '启用数学公式渲染',
+                value: _settings.mathEquationRendering,
+                onChanged: (value) {
+                  _update(_settings.copyWith(mathEquationRendering: value));
+                },
               ),
-              SettingsRow(
-                key: const Key('rendering_app_font_row'),
-                icon: Icons.font_download_outlined,
-                title: '应用字体',
-                value: _settings.appFont.label,
-                onTap: () => unawaited(_openAppFont()),
+              _RenderingSwitchRow(
+                key: const Key('rendering_user_markdown_row'),
+                switchKey: const Key('rendering_user_markdown_switch'),
+                icon: const Icon(Icons.text_fields, size: 24),
+                title: '用户消息 Markdown 渲染',
+                value: _settings.userMessageMarkdownRendering,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(
+                      userMessageMarkdownRendering: value,
+                    ),
+                  );
+                },
               ),
-              SettingsRow(
-                key: const Key('rendering_code_font_row'),
-                icon: Icons.code,
-                title: '代码字体',
-                value: _settings.codeFont.label,
-                onTap: () => unawaited(_openCodeFont()),
+              _RenderingSwitchRow(
+                key: const Key('rendering_reasoning_markdown_row'),
+                switchKey: const Key('rendering_reasoning_markdown_switch'),
+                icon: const Icon(Icons.psychology_outlined, size: 25),
+                title: '思维链 Markdown 渲染',
+                value: _settings.reasoningMarkdownRendering,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(reasoningMarkdownRendering: value),
+                  );
+                },
               ),
-            ],
-          ),
-          SettingsSection(
-            title: '背景渲染',
-            children: <Widget>[
-              SettingsRow(
-                key: const Key('rendering_background_mask_row'),
-                icon: Icons.image_outlined,
-                title: '聊天背景遮罩透明度',
-                value: _settings.backgroundMaskOpacityLabel,
-                onTap: () => unawaited(_openBackgroundMaskOpacity()),
+              _RenderingSwitchRow(
+                key: const Key('rendering_assistant_markdown_row'),
+                switchKey: const Key('rendering_assistant_markdown_switch'),
+                icon: const Icon(Icons.chat_bubble_outline, size: 24),
+                title: '助手消息 Markdown 渲染',
+                value: _settings.assistantMessageMarkdownRendering,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(
+                      assistantMessageMarkdownRendering: value,
+                    ),
+                  );
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('rendering_auto_fold_code_row'),
+                switchKey: const Key('rendering_auto_fold_code_switch'),
+                icon: const Icon(Icons.unfold_less, size: 25),
+                title: '自动折叠代码块',
+                value: _settings.autoFoldCodeBlocks,
+                onChanged: (value) {
+                  _update(_settings.copyWith(autoFoldCodeBlocks: value));
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('rendering_mobile_code_wrap_row'),
+                switchKey: const Key('rendering_mobile_code_wrap_switch'),
+                icon: const Icon(Icons.wrap_text, size: 25),
+                title: '移动端代码块自动换行',
+                value: _settings.mobileCodeBlockAutoWrap,
+                onChanged: (value) {
+                  _update(_settings.copyWith(mobileCodeBlockAutoWrap: value));
+                },
               ),
             ],
           ),
@@ -675,150 +713,9 @@ class _RenderingDisplaySettingsPageState
     );
   }
 
-  Future<void> _openAppFont() {
-    return _showChoiceSheet<ChatAppFont>(
-      title: '应用字体',
-      selected: _settings.appFont,
-      items: ChatAppFont.values.map((font) {
-        return _ChoiceItem<ChatAppFont>(
-          key: 'rendering_app_font_${font.name}',
-          label: font.label,
-          value: font,
-        );
-      }).toList(),
-      onSelected: (font) {
-        _update(_settings.copyWith(appFont: font));
-      },
-    );
-  }
-
-  Future<void> _openCodeFont() {
-    return _showChoiceSheet<ChatCodeFont>(
-      title: '代码字体',
-      selected: _settings.codeFont,
-      items: ChatCodeFont.values.map((font) {
-        return _ChoiceItem<ChatCodeFont>(
-          key: 'rendering_code_font_${font.name}',
-          label: font.label,
-          value: font,
-        );
-      }).toList(),
-      onSelected: (font) {
-        _update(_settings.copyWith(codeFont: font));
-      },
-    );
-  }
-
-  Future<void> _openMessageFontScale() {
-    return _showChoiceSheet<double>(
-      title: '聊天字体大小',
-      selected: _settings.messageFontScale,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(
-          key: 'rendering_message_font_90',
-          label: '90%',
-          value: 0.90,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_message_font_100',
-          label: '100%',
-          value: 1.0,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_message_font_110',
-          label: '110%',
-          value: 1.1,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_message_font_125',
-          label: '125%',
-          value: 1.25,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_message_font_140',
-          label: '140%',
-          value: 1.4,
-        ),
-      ],
-      onSelected: (scale) {
-        _update(_settings.copyWith(messageFontScale: scale));
-      },
-    );
-  }
-
-  Future<void> _openBackgroundMaskOpacity() {
-    return _showChoiceSheet<double>(
-      title: '聊天背景遮罩透明度',
-      selected: _settings.backgroundMaskOpacity,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(
-          key: 'rendering_mask_0',
-          label: '0%',
-          value: 0.0,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_mask_50',
-          label: '50%',
-          value: 0.5,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_mask_75',
-          label: '75%',
-          value: 0.75,
-        ),
-        _ChoiceItem<double>(
-          key: 'rendering_mask_100',
-          label: '100%',
-          value: 1.0,
-        ),
-      ],
-      onSelected: (opacity) {
-        _update(_settings.copyWith(backgroundMaskOpacity: opacity));
-      },
-    );
-  }
-
-  Future<void> _showChoiceSheet<T>({
-    required String title,
-    required T selected,
-    required List<_ChoiceItem<T>> items,
-    required ValueChanged<T> onSelected,
-  }) async {
-    final next = await showModalBottomSheet<T>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return _ChoiceSheet<T>(
-          title: title,
-          selected: selected,
-          items: items,
-        );
-      },
-    );
-
-    if (next == null || !mounted) {
-      return;
-    }
-
-    onSelected(next);
-  }
-
   void _update(ChatDisplaySettings settings) {
     setState(() => _settings = settings);
     widget.onChanged?.call(settings);
-  }
-
-  void _resetSettings() {
-    const defaults = ChatDisplaySettings();
-    _update(
-      _settings.copyWith(
-        selectableMessageText: defaults.selectableMessageText,
-        appFont: defaults.appFont,
-        codeFont: defaults.codeFont,
-        messageFontScale: defaults.messageFontScale,
-        backgroundMaskOpacity: defaults.backgroundMaskOpacity,
-      ),
-    );
   }
 }
 
@@ -864,10 +761,13 @@ class _BehaviorDisplaySettingsPageState
           key: const Key('behavior_reset_button'),
           tooltip: '恢复默认',
           onPressed: _resetSettings,
-          icon: const Icon(Icons.restart_alt, size: 30),
+          icon: const Icon(Icons.restart_alt, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(bottom: 32),
         children: <Widget>[
           SettingsSection(
@@ -927,38 +827,29 @@ class _BehaviorDisplaySettingsPageState
   }
 
   Future<void> _openAutoScrollDelay() {
-    return _showChoiceSheet<Duration>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '自动回到底部延迟',
-      selected: _settings.autoScrollDelay,
-      items: const <_ChoiceItem<Duration>>[
-        _ChoiceItem<Duration>(
-          key: 'behavior_auto_scroll_0',
-          label: '立即',
-          value: Duration.zero,
-        ),
-        _ChoiceItem<Duration>(
-          key: 'behavior_auto_scroll_2',
-          label: '2s',
-          value: Duration(seconds: 2),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'behavior_auto_scroll_5',
-          label: '5s',
-          value: Duration(seconds: 5),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'behavior_auto_scroll_8',
-          label: '8s',
-          value: Duration(seconds: 8),
-        ),
-        _ChoiceItem<Duration>(
-          key: 'behavior_auto_scroll_12',
-          label: '12s',
-          value: Duration(seconds: 12),
-        ),
+      value: _settings.autoScrollDelay.inSeconds.toDouble(),
+      min: 0,
+      max: 60,
+      divisions: 60,
+      sliderKey: const Key('behavior_auto_scroll_delay_slider'),
+      subtitle: '用户停止滚动后等待多久再自动回到底部',
+      valueLabelBuilder: _formatDelaySliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(0, '立即'),
+        _SliderTickLabel(15, '15s'),
+        _SliderTickLabel(30, '30s'),
+        _SliderTickLabel(45, '45s'),
+        _SliderTickLabel(60, '60s'),
       ],
-      onSelected: (delay) {
-        _update(_settings.copyWith(autoScrollDelay: delay));
+      onChanged: (value) {
+        _update(
+          _settings.copyWith(
+            autoScrollDelay: Duration(seconds: value.round()),
+          ),
+        );
       },
     );
   }
@@ -1047,10 +938,13 @@ class _ChatItemsDisplaySettingsPageState
           key: const Key('chat_items_reset_button'),
           tooltip: '恢复默认',
           onPressed: _resetSettings,
-          icon: const Icon(Icons.restart_alt, size: 30),
+          icon: const Icon(Icons.restart_alt, size: 24),
         ),
       ],
       child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(bottom: 32),
         children: <Widget>[
           Padding(
@@ -1158,38 +1052,25 @@ class _ChatItemsDisplaySettingsPageState
   }
 
   Future<void> _openMessageFontScale() {
-    return _showChoiceSheet<double>(
+    return _showSettingsSliderSheet(
+      context: context,
       title: '聊天字体大小',
-      selected: _settings.messageFontScale,
-      items: const <_ChoiceItem<double>>[
-        _ChoiceItem<double>(
-          key: 'chat_items_message_font_90',
-          label: '90%',
-          value: 0.90,
-        ),
-        _ChoiceItem<double>(
-          key: 'chat_items_message_font_100',
-          label: '100%',
-          value: 1.0,
-        ),
-        _ChoiceItem<double>(
-          key: 'chat_items_message_font_110',
-          label: '110%',
-          value: 1.1,
-        ),
-        _ChoiceItem<double>(
-          key: 'chat_items_message_font_125',
-          label: '125%',
-          value: 1.25,
-        ),
-        _ChoiceItem<double>(
-          key: 'chat_items_message_font_140',
-          label: '140%',
-          value: 1.4,
-        ),
+      value: _settings.messageFontScale * 100,
+      min: 90,
+      max: 140,
+      divisions: 50,
+      sliderKey: const Key('chat_items_message_font_scale_slider'),
+      valueLabelBuilder: _formatPercentSliderValue,
+      tickLabels: const <_SliderTickLabel>[
+        _SliderTickLabel(90, '90%'),
+        _SliderTickLabel(100, '100%'),
+        _SliderTickLabel(110, '110%'),
+        _SliderTickLabel(120, '120%'),
+        _SliderTickLabel(130, '130%'),
+        _SliderTickLabel(140, '140%'),
       ],
-      onSelected: (scale) {
-        _update(_settings.copyWith(messageFontScale: scale));
+      onChanged: (value) {
+        _update(_settings.copyWith(messageFontScale: value / 100));
       },
     );
   }
@@ -1254,10 +1135,7 @@ class _ThemePreviewCard extends StatelessWidget {
     final previewSettings = settings.copyWith(showMessageActions: false);
     final maskAlpha = settings.backgroundMaskOpacity;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
         child: Column(
@@ -1269,9 +1147,10 @@ class _ThemePreviewCard extends StatelessWidget {
                   child: Text(
                     '预览',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: settingsPrimaryText,
-                          fontSize: 20,
+                          color: settingsPrimaryTextColor(context),
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
                         ),
                   ),
                 ),
@@ -1289,8 +1168,8 @@ class _ThemePreviewCard extends StatelessWidget {
                   colors.surfaceContainerLow.withValues(alpha: maskAlpha),
                   colors.surfaceContainerHigh.withValues(alpha: 0.32),
                 ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: settingsDividerColor),
+                borderRadius: BorderRadius.circular(settingsCardRadius),
+                border: Border.all(color: settingsDividerColorFor(context)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -1327,59 +1206,9 @@ class _ThemeColorDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: settingsDividerColor),
+        border: Border.all(color: settingsDividerColorFor(context)),
       ),
       child: const SizedBox.square(dimension: 18),
-    );
-  }
-}
-
-class _RenderingPreviewCard extends StatelessWidget {
-  const _RenderingPreviewCard({
-    required this.settings,
-  });
-
-  final ChatDisplaySettings settings;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewSettings = settings.copyWith(showMessageActions: false);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              '预览',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: settingsPrimaryText,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 14),
-            IgnorePointer(
-              child: MessageBubble(
-                message: ChatMessage(
-                  id: 'rendering_preview',
-                  author: ChatMessageAuthor.assistant,
-                  content: '普通文本和代码片段会按当前字体渲染。\n\n'
-                      '```dart\n'
-                      'final ready = true;\n'
-                      '```',
-                  createdAt: DateTime(2026, 6, 1, 9, 32),
-                ),
-                displaySettings: previewSettings,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1394,10 +1223,7 @@ class _ChatItemsPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
         child: Column(
@@ -1406,9 +1232,10 @@ class _ChatItemsPreviewCard extends StatelessWidget {
             Text(
               '预览',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: settingsPrimaryText,
-                    fontSize: 20,
+                    color: settingsPrimaryTextColor(context),
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
             ),
             const SizedBox(height: 14),
@@ -1444,6 +1271,144 @@ class _ChatItemsPreviewCard extends StatelessWidget {
   }
 }
 
+class _RenderingSettingsCard extends StatelessWidget {
+  const _RenderingSettingsCard({
+    required this.children,
+  });
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final widgets = <Widget>[];
+    for (var index = 0; index < children.length; index++) {
+      widgets.add(children[index]);
+      if (index < children.length - 1) {
+        widgets.add(
+          Divider(
+            height: 1,
+            color: settingsDividerColorFor(context),
+            indent: 63,
+            endIndent: 14,
+          ),
+        );
+      }
+    }
+
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(settingsCardRadius),
+        child: Column(children: widgets),
+      ),
+    );
+  }
+}
+
+class _RenderingSwitchRow extends StatelessWidget {
+  const _RenderingSwitchRow({
+    required this.switchKey,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final Key switchKey;
+  final Widget icon;
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 6, 12, 6),
+            child: Row(
+              children: <Widget>[
+                SizedBox.square(
+                  dimension: 26,
+                  child: IconTheme(
+                    data: IconThemeData(color: primary),
+                    child: Center(child: icon),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: primary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  key: switchKey,
+                  value: value,
+                  onChanged: onChanged,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  thumbColor: const WidgetStatePropertyAll<Color>(
+                    Colors.white,
+                  ),
+                  trackColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return const Color(0xff4665a0);
+                    }
+
+                    return const Color(0xffe6e6e8);
+                  }),
+                  trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return const Color(0xff4665a0);
+                    }
+
+                    return const Color(0xffd6d6d9);
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RenderingTextIcon extends StatelessWidget {
+  const _RenderingTextIcon(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: settingsPrimaryTextColor(context),
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        height: 1,
+        letterSpacing: 0,
+      ),
+    );
+  }
+}
+
 class _DisplaySettingsCard extends StatelessWidget {
   const _DisplaySettingsCard({
     required this.children,
@@ -1458,23 +1423,20 @@ class _DisplaySettingsCard extends StatelessWidget {
       widgets.add(children[index]);
       if (index < children.length - 1) {
         widgets.add(
-          const Divider(
+          Divider(
             height: 1,
-            color: settingsDividerColor,
+            color: settingsDividerColorFor(context),
             indent: 74,
-            endIndent: 20,
+            endIndent: 18,
           ),
         );
       }
     }
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: settingsCardBackground,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: settingsCardDecoration(context),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(settingsCardRadius),
         child: Column(children: widgets),
       ),
     );
@@ -1499,33 +1461,44 @@ class _DisplaySwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
+    final divider = settingsDividerColorFor(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged(!value),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 74),
+          constraints: const BoxConstraints(minHeight: 70),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 18, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
             child: Row(
               children: <Widget>[
-                SizedBox.square(
-                  dimension: 34,
-                  child: Icon(icon, size: 30, color: settingsPrimaryText),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: settingsPageBackgroundColor(context),
+                    borderRadius: BorderRadius.circular(settingsCardRadius),
+                    border: Border.all(color: divider),
+                  ),
+                  child: SizedBox.square(
+                    dimension: 42,
+                    child: Icon(icon, size: 23, color: primary),
+                  ),
                 ),
-                const SizedBox(width: 28),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: settingsPrimaryText,
-                          fontSize: 21,
+                          color: primary,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
                         ),
                   ),
                 ),
+                const SizedBox(width: 10),
                 Switch(
                   key: switchKey,
                   value: value,
@@ -1538,6 +1511,284 @@ class _DisplaySwitchRow extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _showSettingsSliderSheet({
+  required BuildContext context,
+  required String title,
+  required double value,
+  required double min,
+  required double max,
+  required int divisions,
+  required Key sliderKey,
+  required String Function(double value) valueLabelBuilder,
+  required List<_SliderTickLabel> tickLabels,
+  required ValueChanged<double> onChanged,
+  String? subtitle,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      return _SettingsSliderSheet(
+        title: title,
+        value: value,
+        min: min,
+        max: max,
+        divisions: divisions,
+        sliderKey: sliderKey,
+        subtitle: subtitle,
+        valueLabelBuilder: valueLabelBuilder,
+        tickLabels: tickLabels,
+        onChanged: onChanged,
+      );
+    },
+  );
+}
+
+String _formatPercentSliderValue(double value) {
+  return '${value.round()}%';
+}
+
+String _formatDelaySliderValue(double value) {
+  final seconds = value.round();
+  if (seconds == 0) {
+    return '立即';
+  }
+
+  return '${seconds}s';
+}
+
+class _SettingsSliderSheet extends StatefulWidget {
+  const _SettingsSliderSheet({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.sliderKey,
+    required this.valueLabelBuilder,
+    required this.tickLabels,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final Key sliderKey;
+  final String? subtitle;
+  final String Function(double value) valueLabelBuilder;
+  final List<_SliderTickLabel> tickLabels;
+  final ValueChanged<double> onChanged;
+
+  @override
+  State<_SettingsSliderSheet> createState() => _SettingsSliderSheetState();
+}
+
+class _SettingsSliderSheetState extends State<_SettingsSliderSheet> {
+  late double _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = _clampValue(widget.value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
+    final secondary = settingsSecondaryTextColor(context);
+    const activeColor = Color(0xff4665a0);
+    final inactiveColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xff3a3a40)
+        : const Color(0xffd6d6dc);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: primary,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.valueLabelBuilder(_value),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: activeColor,
+                inactiveTrackColor: inactiveColor,
+                activeTickMarkColor: Colors.transparent,
+                inactiveTickMarkColor: Colors.transparent,
+                overlayColor: activeColor.withValues(alpha: 0.14),
+                thumbColor: activeColor,
+                trackHeight: 7,
+                valueIndicatorColor: activeColor,
+                valueIndicatorTextStyle:
+                    Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+              ),
+              child: Slider(
+                key: widget.sliderKey,
+                value: _value,
+                min: widget.min,
+                max: widget.max,
+                divisions: widget.divisions,
+                label: widget.valueLabelBuilder(_value),
+                onChanged: _handleChanged,
+              ),
+            ),
+            _SliderTickScale(
+              labels: widget.tickLabels,
+              min: widget.min,
+              max: widget.max,
+              textColor: secondary,
+            ),
+            if (widget.subtitle != null) ...<Widget>[
+              const SizedBox(height: 10),
+              Text(
+                widget.subtitle!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: secondary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleChanged(double value) {
+    final next = _clampValue(value);
+    setState(() => _value = next);
+    widget.onChanged(next);
+  }
+
+  double _clampValue(double value) {
+    return value.clamp(widget.min, widget.max).toDouble();
+  }
+}
+
+class _SliderTickScale extends StatelessWidget {
+  const _SliderTickScale({
+    required this.labels,
+    required this.min,
+    required this.max,
+    required this.textColor,
+  });
+
+  final List<_SliderTickLabel> labels;
+  final double min;
+  final double max;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const labelWidth = 58.0;
+          final width = constraints.maxWidth;
+          final maxLabelLeft = width > labelWidth ? width - labelWidth : 0.0;
+          final maxTickLeft = width > 1 ? width - 1 : 0.0;
+          return SizedBox(
+            height: 36,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                ...labels.map((label) {
+                  final left = _positionFor(label.value, width)
+                      .clamp(0.0, maxTickLeft)
+                      .toDouble();
+                  return Positioned(
+                    left: left,
+                    top: 0,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: textColor.withValues(alpha: 0.4),
+                      ),
+                      child: const SizedBox(width: 1, height: 10),
+                    ),
+                  );
+                }),
+                ...labels.map((label) {
+                  final left =
+                      (_positionFor(label.value, width) - labelWidth / 2)
+                          .clamp(0.0, maxLabelLeft)
+                          .toDouble();
+                  return Positioned(
+                    left: left,
+                    top: 16,
+                    width: labelWidth,
+                    child: Text(
+                      label.label,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  double _positionFor(double value, double width) {
+    if (max == min) {
+      return 0;
+    }
+
+    final ratio = ((value - min) / (max - min)).clamp(0.0, 1.0).toDouble();
+    return ratio * width;
+  }
+}
+
+class _SliderTickLabel {
+  const _SliderTickLabel(this.value, this.label);
+
+  final double value;
+  final String label;
 }
 
 class _ChoiceSheet<T> extends StatelessWidget {
@@ -1553,6 +1804,7 @@ class _ChoiceSheet<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -1562,11 +1814,23 @@ class _ChoiceSheet<T> extends StatelessWidget {
           children: <Widget>[
             _SheetTitle(title),
             ...items.map((item) {
+              final selectedItem = selected == item.value;
               return ListTile(
                 key: Key(item.key),
-                title: Text(item.label),
-                trailing:
-                    selected == item.value ? const Icon(Icons.check) : null,
+                selected: selectedItem,
+                selectedColor: primary,
+                title: Text(
+                  item.label,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: primary,
+                        fontWeight:
+                            selectedItem ? FontWeight.w800 : FontWeight.w600,
+                        letterSpacing: 0,
+                      ),
+                ),
+                trailing: selectedItem
+                    ? Icon(Icons.check, color: primary, size: 22)
+                    : null,
                 onTap: () => Navigator.of(context).pop(item.value),
               );
             }),
@@ -1589,7 +1853,9 @@ class _SheetTitle extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: settingsPrimaryTextColor(context),
               fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
       ),
     );
