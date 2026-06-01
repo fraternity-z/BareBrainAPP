@@ -22,6 +22,8 @@ class ChatDisplaySettingsCodec {
     return <String, dynamic>{
       'colorMode': settings.colorMode.name,
       'themePreset': settings.themePreset.name,
+      'showMessageAvatars': settings.showMessageAvatars,
+      'showMessageAuthorNames': settings.showMessageAuthorNames,
       'showMessageTimestamps': settings.showMessageTimestamps,
       'showMessageActions': settings.showMessageActions,
       'compactMessageSpacing': settings.compactMessageSpacing,
@@ -48,6 +50,14 @@ class ChatDisplaySettingsCodec {
         ChatThemePreset.values,
         value['themePreset'],
         defaults.themePreset,
+      ),
+      showMessageAvatars: _boolValue(
+        value['showMessageAvatars'],
+        defaults.showMessageAvatars,
+      ),
+      showMessageAuthorNames: _boolValue(
+        value['showMessageAuthorNames'],
+        defaults.showMessageAuthorNames,
       ),
       showMessageTimestamps: _boolValue(
         value['showMessageTimestamps'],

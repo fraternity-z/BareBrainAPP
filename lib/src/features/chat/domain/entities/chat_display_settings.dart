@@ -54,6 +54,8 @@ class ChatDisplaySettings {
   const ChatDisplaySettings({
     this.colorMode = ChatColorMode.system,
     this.themePreset = ChatThemePreset.graphite,
+    this.showMessageAvatars = true,
+    this.showMessageAuthorNames = false,
     this.showMessageTimestamps = true,
     this.showMessageActions = true,
     this.compactMessageSpacing = false,
@@ -70,6 +72,8 @@ class ChatDisplaySettings {
 
   final ChatColorMode colorMode;
   final ChatThemePreset themePreset;
+  final bool showMessageAvatars;
+  final bool showMessageAuthorNames;
   final bool showMessageTimestamps;
   final bool showMessageActions;
   final bool compactMessageSpacing;
@@ -85,6 +89,8 @@ class ChatDisplaySettings {
   ChatDisplaySettings copyWith({
     ChatColorMode? colorMode,
     ChatThemePreset? themePreset,
+    bool? showMessageAvatars,
+    bool? showMessageAuthorNames,
     bool? showMessageTimestamps,
     bool? showMessageActions,
     bool? compactMessageSpacing,
@@ -100,6 +106,9 @@ class ChatDisplaySettings {
     return ChatDisplaySettings(
       colorMode: colorMode ?? this.colorMode,
       themePreset: themePreset ?? this.themePreset,
+      showMessageAvatars: showMessageAvatars ?? this.showMessageAvatars,
+      showMessageAuthorNames:
+          showMessageAuthorNames ?? this.showMessageAuthorNames,
       showMessageTimestamps:
           showMessageTimestamps ?? this.showMessageTimestamps,
       showMessageActions: showMessageActions ?? this.showMessageActions,
@@ -163,6 +172,8 @@ class ChatDisplaySettings {
         other is ChatDisplaySettings &&
             other.colorMode == colorMode &&
             other.themePreset == themePreset &&
+            other.showMessageAvatars == showMessageAvatars &&
+            other.showMessageAuthorNames == showMessageAuthorNames &&
             other.showMessageTimestamps == showMessageTimestamps &&
             other.showMessageActions == showMessageActions &&
             other.compactMessageSpacing == compactMessageSpacing &&
@@ -181,6 +192,8 @@ class ChatDisplaySettings {
     return Object.hash(
       colorMode,
       themePreset,
+      showMessageAvatars,
+      showMessageAuthorNames,
       showMessageTimestamps,
       showMessageActions,
       compactMessageSpacing,

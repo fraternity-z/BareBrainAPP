@@ -39,111 +39,215 @@ class MessageBubble extends StatelessWidget {
       height: 1.42,
     );
     final canShowCopy = onCopy != null && displaySettings.showMessageActions;
-    final canShowRetry = onRetry != null;
+    final canShowRetry = onRetry != null && displaySettings.showMessageActions;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth =
             constraints.maxWidth < 840 ? constraints.maxWidth * 0.86 : 720.0;
+        final showAvatar = displaySettings.showMessageAvatars && maxWidth >= 96;
+        final bubbleMaxWidth = showAvatar ? maxWidth - 43 : maxWidth;
+        final bubble = ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: style.gradient == null ? style.background : null,
+              gradient: style.gradient,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(isUser ? 22 : 10),
+                topRight: Radius.circular(isUser ? 10 : 22),
+                bottomLeft: const Radius.circular(22),
+                bottomRight: const Radius.circular(22),
+              ),
+              border: Border.all(color: style.border, width: 0.7),
+              boxShadow: style.shadows,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: displaySettings.compactMessageSpacing ? 12 : 15,
+                vertical: displaySettings.compactMessageSpacing ? 8 : 11,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment:
+                    isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (displaySettings.showMessageAuthorNames) ...<Widget>[
+                    Text(
+                      _authorLabel(message.author),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: style.foreground.withValues(alpha: 0.72),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    SizedBox(
+                      height: displaySettings.compactMessageSpacing ? 4 : 6,
+                    ),
+                  ],
+                  if (displaySettings.selectableMessageText)
+                    SelectableText(
+                      message.content,
+                      style: contentStyle,
+                    )
+                  else
+                    Text(
+                      message.content,
+                      style: contentStyle,
+                    ),
+                  if (displaySettings.showMessageTimestamps) ...<Widget>[
+                    SizedBox(
+                      height: displaySettings.compactMessageSpacing ? 4 : 6,
+                    ),
+                    Text(
+                      ChatMessageTimeFormatter.format(message.createdAt),
+                      style: _scaledTextStyle(
+                        Theme.of(context).textTheme.labelSmall,
+                        displaySettings.messageFontScale,
+                      )?.copyWith(
+                        color: style.foreground.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (message.isPending) ...<Widget>[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: style.foreground,
+                      ),
+                    ),
+                  ],
+                  if (canShowCopy || canShowRetry) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      alignment:
+                          isUser ? WrapAlignment.end : WrapAlignment.start,
+                      children: <Widget>[
+                        if (canShowCopy)
+                          IconButton(
+                            tooltip: '复制消息',
+                            onPressed: onCopy,
+                            color: style.foreground,
+                            visualDensity: VisualDensity.compact,
+                            iconSize: 18,
+                            icon: const Icon(Icons.copy_all_outlined),
+                          ),
+                        if (canShowRetry)
+                          TextButton.icon(
+                            onPressed: onRetry,
+                            style: TextButton.styleFrom(
+                              foregroundColor: style.foreground,
+                            ),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('重试'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+        final avatar = showAvatar
+            ? _MessageAuthorAvatar(author: message.author)
+            : const SizedBox.shrink();
+        final children = isUser
+            ? <Widget>[
+                bubble,
+                if (showAvatar) const SizedBox(width: 9),
+                if (showAvatar) avatar,
+              ]
+            : <Widget>[
+                if (showAvatar) avatar,
+                if (showAvatar) const SizedBox(width: 9),
+                bubble,
+              ];
+
         return Align(
           alignment: alignment,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: style.gradient == null ? style.background : null,
-                gradient: style.gradient,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(isUser ? 22 : 10),
-                  topRight: Radius.circular(isUser ? 10 : 22),
-                  bottomLeft: const Radius.circular(22),
-                  bottomRight: const Radius.circular(22),
-                ),
-                border: Border.all(color: style.border, width: 0.7),
-                boxShadow: style.shadows,
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: displaySettings.compactMessageSpacing ? 12 : 15,
-                  vertical: displaySettings.compactMessageSpacing ? 8 : 11,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: isUser
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (displaySettings.selectableMessageText)
-                      SelectableText(
-                        message.content,
-                        style: contentStyle,
-                      )
-                    else
-                      Text(
-                        message.content,
-                        style: contentStyle,
-                      ),
-                    if (displaySettings.showMessageTimestamps) ...<Widget>[
-                      SizedBox(
-                        height: displaySettings.compactMessageSpacing ? 4 : 6,
-                      ),
-                      Text(
-                        ChatMessageTimeFormatter.format(message.createdAt),
-                        style: _scaledTextStyle(
-                          Theme.of(context).textTheme.labelSmall,
-                          displaySettings.messageFontScale,
-                        )?.copyWith(
-                          color: style.foreground.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                    if (message.isPending) ...<Widget>[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 14,
-                        width: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: style.foreground,
-                        ),
-                      ),
-                    ],
-                    if (canShowCopy || canShowRetry) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          if (canShowCopy)
-                            IconButton(
-                              tooltip: '复制消息',
-                              onPressed: onCopy,
-                              color: style.foreground,
-                              visualDensity: VisualDensity.compact,
-                              iconSize: 18,
-                              icon: const Icon(Icons.copy_all_outlined),
-                            ),
-                          if (canShowRetry)
-                            TextButton.icon(
-                              onPressed: onRetry,
-                              style: TextButton.styleFrom(
-                                foregroundColor: style.foreground,
-                              ),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('重试'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment:
+                  isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
             ),
           ),
         );
       },
     );
   }
+}
+
+class _MessageAuthorAvatar extends StatelessWidget {
+  const _MessageAuthorAvatar({
+    required this.author,
+  });
+
+  final ChatMessageAuthor author;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final background = switch (author) {
+      ChatMessageAuthor.user => colors.primary,
+      ChatMessageAuthor.assistant => colors.secondaryContainer,
+      ChatMessageAuthor.system => colors.errorContainer,
+    };
+    final foreground = switch (author) {
+      ChatMessageAuthor.user => colors.onPrimary,
+      ChatMessageAuthor.assistant => colors.onSecondaryContainer,
+      ChatMessageAuthor.system => colors.onErrorContainer,
+    };
+
+    return Semantics(
+      label: _authorLabel(author),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          shape: BoxShape.circle,
+        ),
+        child: SizedBox.square(
+          dimension: 34,
+          child: Center(
+            child: Text(
+              _avatarLabel(author),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _authorLabel(ChatMessageAuthor author) {
+  return switch (author) {
+    ChatMessageAuthor.user => '我',
+    ChatMessageAuthor.assistant => 'BareBrain',
+    ChatMessageAuthor.system => '系统',
+  };
+}
+
+String _avatarLabel(ChatMessageAuthor author) {
+  return switch (author) {
+    ChatMessageAuthor.user => '我',
+    ChatMessageAuthor.assistant => 'B',
+    ChatMessageAuthor.system => '!',
+  };
 }
 
 class _BubbleStyle {
