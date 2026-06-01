@@ -51,9 +51,16 @@ class MessageBubble extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: style.background,
-                borderRadius: BorderRadius.circular(20),
+                color: style.gradient == null ? style.background : null,
+                gradient: style.gradient,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(isUser ? 22 : 10),
+                  topRight: Radius.circular(isUser ? 10 : 22),
+                  bottomLeft: const Radius.circular(22),
+                  bottomRight: const Radius.circular(22),
+                ),
                 border: Border.all(color: style.border, width: 0.7),
+                boxShadow: style.shadows,
               ),
               child: Padding(
                 padding: EdgeInsets.symmetric(
@@ -144,11 +151,15 @@ class _BubbleStyle {
     required this.background,
     required this.foreground,
     required this.border,
+    this.gradient,
+    this.shadows,
   });
 
   final Color background;
   final Color foreground;
   final Color border;
+  final Gradient? gradient;
+  final List<BoxShadow>? shadows;
 
   static _BubbleStyle resolve(
     ColorScheme colors, {
@@ -156,6 +167,14 @@ class _BubbleStyle {
     required bool isSystem,
     required ChatMessageBackground background,
   }) {
+    final assistantShadows = <BoxShadow>[
+      BoxShadow(
+        color: colors.shadow.withValues(alpha: 0.06),
+        blurRadius: 18,
+        offset: const Offset(0, 8),
+      ),
+    ];
+
     if (isSystem) {
       return _BubbleStyle(
         background: colors.errorContainer,
@@ -168,13 +187,40 @@ class _BubbleStyle {
       ChatMessageBackground.standard => _BubbleStyle(
           background: isUser ? colors.primary : colors.surfaceContainerLowest,
           foreground: isUser ? colors.onPrimary : colors.onSurface,
-          border: isUser ? colors.primary : colors.outlineVariant,
+          border: isUser
+              ? colors.primary.withValues(alpha: 0.24)
+              : colors.outlineVariant.withValues(alpha: 0.82),
+          gradient: isUser
+              ? LinearGradient(
+                  colors: <Color>[
+                    colors.primary,
+                    Color.alphaBlend(
+                      colors.secondary.withValues(alpha: 0.34),
+                      colors.primary,
+                    ),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          shadows: isUser
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : assistantShadows,
         ),
       ChatMessageBackground.soft => _BubbleStyle(
           background:
               isUser ? colors.secondaryContainer : colors.surfaceContainerHigh,
           foreground: isUser ? colors.onSecondaryContainer : colors.onSurface,
-          border: isUser ? colors.secondary : colors.outlineVariant,
+          border: isUser
+              ? colors.secondary.withValues(alpha: 0.34)
+              : colors.outlineVariant.withValues(alpha: 0.82),
+          shadows: assistantShadows,
         ),
       ChatMessageBackground.plain => _BubbleStyle(
           background: colors.surfaceContainerLowest,

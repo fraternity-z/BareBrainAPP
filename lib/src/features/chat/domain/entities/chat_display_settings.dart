@@ -9,9 +9,9 @@ enum ChatColorMode {
 }
 
 enum ChatThemePreset {
-  seaFog('海雾蓝'),
+  seaFog('浅灰'),
   graphite('岩灰'),
-  warmSun('暖日橙');
+  warmSun('深灰');
 
   const ChatThemePreset(this.label);
 
@@ -53,7 +53,7 @@ enum ChatCodeFont {
 class ChatDisplaySettings {
   const ChatDisplaySettings({
     this.colorMode = ChatColorMode.system,
-    this.themePreset = ChatThemePreset.seaFog,
+    this.themePreset = ChatThemePreset.graphite,
     this.showMessageTimestamps = true,
     this.showMessageActions = true,
     this.compactMessageSpacing = false,

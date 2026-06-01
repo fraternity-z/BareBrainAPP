@@ -167,6 +167,8 @@ class _ChatPageState extends State<ChatPage> {
                                 textController: _composer,
                                 onChanged: _updateDraft,
                                 onSend: _send,
+                                onShortcutCommandsPressed:
+                                    _openShortcutCommandList,
                                 onQuickPhrasesPressed:
                                     widget.appSettingsController == null
                                         ? null
@@ -344,6 +346,14 @@ class _ChatPageState extends State<ChatPage> {
     _insertComposerText(phrase.content);
   }
 
+  Future<void> _openShortcutCommandList() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _ShortcutCommandListSheet(),
+    );
+  }
+
   void _insertComposerText(String content) {
     final selection = _composer.selection;
     final text = _composer.text;
@@ -437,12 +447,12 @@ class _ChatPageState extends State<ChatPage> {
 
 BoxDecoration _templateSurfaceDecoration(
   ColorScheme colors, {
-  double radius = 18,
+  double radius = 22,
   Color? color,
   bool showBorder = true,
-  double shadowAlpha = 0.10,
-  double blurRadius = 18,
-  Offset offset = const Offset(0, 8),
+  double shadowAlpha = 0.08,
+  double blurRadius = 22,
+  Offset offset = const Offset(0, 10),
 }) {
   final boxShadow = shadowAlpha <= 0
       ? null
@@ -452,12 +462,19 @@ BoxDecoration _templateSurfaceDecoration(
             blurRadius: blurRadius,
             offset: offset,
           ),
+          BoxShadow(
+            color: colors.primary.withValues(alpha: shadowAlpha * 0.42),
+            blurRadius: blurRadius * 1.2,
+            offset: Offset(offset.dx, offset.dy * 0.55),
+          ),
         ];
 
   return BoxDecoration(
     color: color ?? colors.surfaceContainerLowest,
     borderRadius: BorderRadius.circular(radius),
-    border: showBorder ? Border.all(color: colors.outlineVariant) : null,
+    border: showBorder
+        ? Border.all(color: colors.outlineVariant.withValues(alpha: 0.82))
+        : null,
     boxShadow: boxShadow,
   );
 }
@@ -625,10 +642,15 @@ class _Sidebar extends StatelessWidget {
       key: const Key('chat_sidebar'),
       width: sidebarWidth,
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
+        color: Color.alphaBlend(
+          colors.primaryContainer.withValues(alpha: 0.16),
+          colors.surfaceContainerLowest,
+        ),
         border: showBorder
             ? Border(
-                right: BorderSide(color: colors.outlineVariant),
+                right: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.86),
+                ),
               )
             : null,
       ),
@@ -636,7 +658,7 @@ class _Sidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
             child: _NewConversationButton(
               onPressed: () {
                 unawaited(controller.createConversation());
@@ -744,12 +766,14 @@ class _NewConversationButton extends StatelessWidget {
         child: FilledButton.icon(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(46),
+            minimumSize: const Size.fromHeight(50),
             backgroundColor: colors.primary,
             foregroundColor: colors.onPrimary,
+            elevation: 8,
+            shadowColor: colors.primary.withValues(alpha: 0.22),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.centerLeft,
           ),
           icon: const Icon(Icons.add_comment_outlined, size: 20),
@@ -778,32 +802,46 @@ class _SidebarFooter extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-      child: Row(
-        children: <Widget>[
-          const _BareBrainMark(size: 38, label: '用'),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '用户',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
+      child: DecoratedBox(
+        decoration: _templateSurfaceDecoration(
+          colors,
+          color: colors.surfaceContainerLowest.withValues(alpha: 0.92),
+          radius: 24,
+          showBorder: false,
+          shadowAlpha: 0.07,
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
+          child: Row(
+            children: <Widget>[
+              const _BareBrainMark(size: 38, label: '用'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '用户',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              IconButton(
+                tooltip: '清空会话',
+                onPressed: onClearPressed,
+                icon: const Icon(Icons.delete_outline),
+              ),
+              IconButton(
+                tooltip: '设置',
+                onPressed: onSettingsPressed,
+                icon: const Icon(Icons.settings_outlined),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: '清空会话',
-            onPressed: onClearPressed,
-            icon: const Icon(Icons.delete_outline),
-          ),
-          IconButton(
-            tooltip: '设置',
-            onPressed: onSettingsPressed,
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -825,6 +863,15 @@ class _ConversationAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         shape: BoxShape.circle,
+        boxShadow: selected
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.24),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
       ),
       child: SizedBox.square(
         dimension: 34,
@@ -909,52 +956,70 @@ class _ConversationTile extends StatelessWidget {
     final preview = conversation.lastMessagePreview.isEmpty
         ? conversation.settings.websocketUri.toString()
         : conversation.lastMessagePreview;
-    final backgroundColor = selected
-        ? Color.alphaBlend(
-            colors.primary.withValues(alpha: 0.08),
-            colors.surfaceContainerHigh,
-          )
-        : Colors.transparent;
+    final borderRadius = BorderRadius.circular(18);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onLongPressStart: (details) {
         unawaited(_showActionsMenu(context, details.globalPosition));
       },
-      child: Material(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        child: ListTile(
-          leading: _ConversationAvatar(selected: selected),
-          selected: selected,
-          selectedTileColor: Colors.transparent,
-          title: Text(
-            conversation.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: selected ? colors.primary : colors.onSurface,
-                  fontWeight: FontWeight.w800,
-                ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: selected ? colors.surfaceContainerLowest : Colors.transparent,
+          borderRadius: borderRadius,
+          border: selected
+              ? Border.all(
+                  color: colors.primary.withValues(alpha: 0.22),
+                )
+              : null,
+          boxShadow: selected
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: colors.shadow.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 7),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: borderRadius,
+          child: ListTile(
+            leading: _ConversationAvatar(selected: selected),
+            selected: selected,
+            selectedTileColor: Colors.transparent,
+            title: Text(
+              conversation.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: selected ? colors.primary : colors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            subtitle: Text(
+              preview,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            trailing:
+                _ConversationMessageCount(count: conversation.messageCount),
+            dense: true,
+            minLeadingWidth: 34,
+            horizontalTitleGap: 10,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: borderRadius,
+            ),
+            onTap: selected ? null : onTap,
           ),
-          subtitle: Text(
-            preview,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          trailing: _ConversationMessageCount(count: conversation.messageCount),
-          dense: true,
-          minLeadingWidth: 34,
-          horizontalTitleGap: 10,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          onTap: selected ? null : onTap,
         ),
       ),
     );
@@ -1219,15 +1284,9 @@ class _Header extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    settings.websocketUri.toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  const SizedBox(height: 7),
+                  _HeaderConnectionPill(
+                    uri: settings.websocketUri.toString(),
                   ),
                 ],
               ),
@@ -1238,6 +1297,56 @@ class _Header extends StatelessWidget {
               icon: const Icon(Icons.delete_outline),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderConnectionPill extends StatelessWidget {
+  const _HeaderConnectionPill({
+    required this.uri,
+  });
+
+  final String uri;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLowest.withValues(alpha: 0.84),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.76),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.wifi_tethering,
+                size: 15,
+                color: colors.primary,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  uri,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1633,6 +1742,7 @@ class _Composer extends StatelessWidget {
     required this.textController,
     required this.onChanged,
     required this.onSend,
+    required this.onShortcutCommandsPressed,
     this.onQuickPhrasesPressed,
   });
 
@@ -1641,6 +1751,7 @@ class _Composer extends StatelessWidget {
   final TextEditingController textController;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
+  final VoidCallback onShortcutCommandsPressed;
   final VoidCallback? onQuickPhrasesPressed;
 
   @override
@@ -1653,10 +1764,14 @@ class _Composer extends StatelessWidget {
         decoration: _templateSurfaceDecoration(
           colors,
           radius: 32,
-          showBorder: true,
-          shadowAlpha: 0,
-          blurRadius: 0,
-          offset: Offset.zero,
+          color: Color.alphaBlend(
+            colors.primaryContainer.withValues(alpha: 0.08),
+            colors.surfaceContainerLowest,
+          ),
+          showBorder: false,
+          shadowAlpha: 0.10,
+          blurRadius: 28,
+          offset: const Offset(0, 12),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
@@ -1692,11 +1807,11 @@ class _Composer extends StatelessWidget {
               Row(
                 children: <Widget>[
                   _ComposerToolIcon(
+                    tooltip: '快捷命令',
                     icon: Icons.auto_awesome,
                     color: colors.secondary,
+                    onPressed: onShortcutCommandsPressed,
                   ),
-                  const SizedBox(width: 18),
-                  const _ComposerToolIcon(icon: Icons.public_outlined),
                   const SizedBox(width: 18),
                   _ComposerToolIcon(
                     tooltip: '快捷短语',
@@ -1706,35 +1821,85 @@ class _Composer extends StatelessWidget {
                   const Spacer(),
                   const _ComposerToolIcon(icon: Icons.add),
                   const SizedBox(width: 10),
-                  SizedBox(
-                    height: 46,
-                    width: 46,
-                    child: FilledButton(
-                      onPressed: controller.isSending ? null : onSend,
-                      style: FilledButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        backgroundColor: colors.surfaceContainerHigh,
-                        disabledBackgroundColor: colors.surfaceContainerHigh,
-                        foregroundColor: colors.onSurfaceVariant,
-                        disabledForegroundColor: colors.onSurfaceVariant,
-                        shadowColor: Colors.transparent,
-                        shape: const CircleBorder(),
-                      ),
-                      child: controller.isSending
-                          ? SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            )
-                          : const Icon(Icons.arrow_upward),
-                    ),
+                  _ComposerSendButton(
+                    isSending: controller.isSending,
+                    onPressed: onSend,
                   ),
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerSendButton extends StatelessWidget {
+  const _ComposerSendButton({
+    required this.isSending,
+    required this.onPressed,
+  });
+
+  final bool isSending;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final disabledColor = colors.surfaceContainerHigh;
+    final foreground = isSending ? colors.onSurfaceVariant : colors.onPrimary;
+
+    return Tooltip(
+      message: '发送',
+      child: SizedBox.square(
+        dimension: 46,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isSending ? disabledColor : null,
+            gradient: isSending
+                ? null
+                : LinearGradient(
+                    colors: <Color>[
+                      colors.primary,
+                      Color.alphaBlend(
+                        colors.secondary.withValues(alpha: 0.34),
+                        colors.primary,
+                      ),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            shape: BoxShape.circle,
+            boxShadow: isSending
+                ? null
+                : <BoxShadow>[
+                    BoxShadow(
+                      color: colors.primary.withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: isSending ? null : onPressed,
+              child: Center(
+                child: isSending
+                    ? SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: foreground,
+                        ),
+                      )
+                    : Icon(Icons.arrow_upward, color: foreground),
+              ),
+            ),
           ),
         ),
       ),
@@ -1758,17 +1923,28 @@ class _ComposerToolIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final iconWidget = Icon(
-      icon,
-      size: 25,
-      color: color ?? colors.onSurfaceVariant,
+    final foreground = color ?? colors.onSurfaceVariant;
+    final iconWidget = DecoratedBox(
+      decoration: BoxDecoration(
+        color: color == null
+            ? colors.surfaceContainerHigh.withValues(alpha: 0.72)
+            : colors.primaryContainer.withValues(alpha: 0.44),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox.square(
+        dimension: 32,
+        child: Center(
+          child: Icon(
+            icon,
+            size: 20,
+            color: foreground,
+          ),
+        ),
+      ),
     );
 
     if (onPressed == null) {
-      return SizedBox.square(
-        dimension: 30,
-        child: Center(child: iconWidget),
-      );
+      return iconWidget;
     }
 
     return Tooltip(
@@ -1776,10 +1952,64 @@ class _ComposerToolIcon extends StatelessWidget {
       child: InkResponse(
         onTap: onPressed,
         radius: 22,
-        child: SizedBox.square(
-          dimension: 30,
-          child: Center(child: iconWidget),
+        child: iconWidget,
+      ),
+    );
+  }
+}
+
+class _ShortcutCommandListSheet extends StatelessWidget {
+  const _ShortcutCommandListSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              '快捷命令',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            const _ShortcutCommandEmptyState(),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _ShortcutCommandEmptyState extends StatelessWidget {
+  const _ShortcutCommandEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.auto_awesome,
+            color: colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '暂无快捷命令',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
