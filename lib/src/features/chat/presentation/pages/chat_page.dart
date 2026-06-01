@@ -14,6 +14,7 @@ import '../controllers/chat_display_settings_controller.dart';
 import '../settings/network_proxy_page.dart';
 import '../settings/settings_page.dart';
 import '../settings/voice_service_page.dart';
+import '../widgets/liquid_glass.dart';
 import '../widgets/message_bubble.dart';
 
 class ChatPage extends StatefulWidget {
@@ -86,13 +87,11 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
               body: SafeArea(
-                child: DecoratedBox(
+                child: LiquidGlassBackdrop(
                   key: const Key('chat_surface'),
-                  decoration: BoxDecoration(
-                    color: _chatSurfaceColor(
-                      Theme.of(context).colorScheme,
-                      widget.displaySettings,
-                    ),
+                  baseColor: _chatSurfaceColor(
+                    Theme.of(context).colorScheme,
+                    widget.displaySettings,
                   ),
                   child: Row(
                     children: <Widget>[
@@ -446,40 +445,6 @@ class _ChatPageState extends State<ChatPage> {
   }
 }
 
-BoxDecoration _templateSurfaceDecoration(
-  ColorScheme colors, {
-  double radius = 22,
-  Color? color,
-  bool showBorder = true,
-  double shadowAlpha = 0.08,
-  double blurRadius = 22,
-  Offset offset = const Offset(0, 10),
-}) {
-  final boxShadow = shadowAlpha <= 0
-      ? null
-      : <BoxShadow>[
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: shadowAlpha),
-            blurRadius: blurRadius,
-            offset: offset,
-          ),
-          BoxShadow(
-            color: colors.primary.withValues(alpha: shadowAlpha * 0.42),
-            blurRadius: blurRadius * 1.2,
-            offset: Offset(offset.dx, offset.dy * 0.55),
-          ),
-        ];
-
-  return BoxDecoration(
-    color: color ?? colors.surfaceContainerLowest,
-    borderRadius: BorderRadius.circular(radius),
-    border: showBorder
-        ? Border.all(color: colors.outlineVariant.withValues(alpha: 0.82))
-        : null,
-    boxShadow: boxShadow,
-  );
-}
-
 TextStyle? _scaledTextStyle(TextStyle? source, double scale) {
   if (source == null) {
     return null;
@@ -639,78 +604,77 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final sidebarWidth = width ?? expandedWidth;
-    return Container(
+    return SizedBox(
       key: const Key('chat_sidebar'),
       width: sidebarWidth,
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
+      child: LiquidGlass(
+        borderRadius: BorderRadius.zero,
+        tint: Color.alphaBlend(
           colors.primaryContainer.withValues(alpha: 0.16),
           colors.surfaceContainerLowest,
         ),
-        border: showBorder
-            ? Border(
-                right: BorderSide(
-                  color: colors.outlineVariant.withValues(alpha: 0.86),
-                ),
-              )
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-            child: _NewConversationButton(
-              onPressed: () {
-                unawaited(controller.createConversation());
+        accentColor: colors.primary,
+        borderColor: showBorder ? colors.outlineVariant : Colors.transparent,
+        borderOpacity: showBorder ? 0.86 : 0,
+        shadowAlpha: showBorder ? 0.08 : 0.12,
+        intensity: LiquidGlassIntensity.subtle,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+              child: _NewConversationButton(
+                onPressed: () {
+                  unawaited(controller.createConversation());
+                  if (closeAfterAction) {
+                    unawaited(Navigator.of(context).maybePop());
+                  }
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 2, 22, 8),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.forum_outlined,
+                    size: 17,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '会话',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _ConversationList(
+                controller: controller,
+                closeAfterSelection: closeAfterAction,
+              ),
+            ),
+            _SidebarFooter(
+              onClearPressed: controller.clear,
+              onSettingsPressed: () {
                 if (closeAfterAction) {
-                  unawaited(Navigator.of(context).maybePop());
+                  unawaited(
+                    Navigator.of(context).maybePop().then((_) {
+                      onSettingsPressed();
+                    }),
+                  );
+                  return;
                 }
+
+                onSettingsPressed();
               },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 2, 22, 8),
-            child: Row(
-              children: <Widget>[
-                Icon(
-                  Icons.forum_outlined,
-                  size: 17,
-                  color: colors.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '会话',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _ConversationList(
-              controller: controller,
-              closeAfterSelection: closeAfterAction,
-            ),
-          ),
-          _SidebarFooter(
-            onClearPressed: controller.clear,
-            onSettingsPressed: () {
-              if (closeAfterAction) {
-                unawaited(
-                  Navigator.of(context).maybePop().then((_) {
-                    onSettingsPressed();
-                  }),
-                );
-                return;
-              }
-
-              onSettingsPressed();
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -728,11 +692,13 @@ class _BareBrainMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.primaryContainer,
-        shape: BoxShape.circle,
-      ),
+    return LiquidGlass(
+      borderRadius: BorderRadius.circular(size / 2),
+      tint: colors.primaryContainer,
+      accentColor: colors.primary,
+      borderOpacity: 0.48,
+      shadowAlpha: 0,
+      intensity: LiquidGlassIntensity.subtle,
       child: SizedBox(
         height: size,
         width: size,
@@ -803,16 +769,13 @@ class _SidebarFooter extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-      child: DecoratedBox(
-        decoration: _templateSurfaceDecoration(
-          colors,
-          color: colors.surfaceContainerLowest.withValues(alpha: 0.92),
-          radius: 24,
-          showBorder: false,
-          shadowAlpha: 0.07,
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-        ),
+      child: LiquidGlass(
+        borderRadius: BorderRadius.circular(24),
+        tint: colors.surfaceContainerLowest,
+        accentColor: colors.primary,
+        borderOpacity: 0.42,
+        shadowAlpha: 0.08,
+        intensity: LiquidGlassIntensity.subtle,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
           child: Row(
@@ -958,6 +921,42 @@ class _ConversationTile extends StatelessWidget {
         ? conversation.settings.websocketUri.toString()
         : conversation.lastMessagePreview;
     final borderRadius = BorderRadius.circular(18);
+    final tile = Material(
+      color: Colors.transparent,
+      borderRadius: borderRadius,
+      child: ListTile(
+        leading: _ConversationAvatar(selected: selected),
+        selected: selected,
+        selectedTileColor: Colors.transparent,
+        title: Text(
+          conversation.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: selected ? colors.primary : colors.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        subtitle: Text(
+          preview,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        trailing: _ConversationMessageCount(count: conversation.messageCount),
+        dense: true,
+        minLeadingWidth: 34,
+        horizontalTitleGap: 10,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: borderRadius,
+        ),
+        onTap: selected ? null : onTap,
+      ),
+    );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -967,61 +966,18 @@ class _ConversationTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: selected ? colors.surfaceContainerLowest : Colors.transparent,
-          borderRadius: borderRadius,
-          border: selected
-              ? Border.all(
-                  color: colors.primary.withValues(alpha: 0.22),
-                )
-              : null,
-          boxShadow: selected
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 7),
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: borderRadius,
-          child: ListTile(
-            leading: _ConversationAvatar(selected: selected),
-            selected: selected,
-            selectedTileColor: Colors.transparent,
-            title: Text(
-              conversation.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: selected ? colors.primary : colors.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            subtitle: Text(
-              preview,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            trailing:
-                _ConversationMessageCount(count: conversation.messageCount),
-            dense: true,
-            minLeadingWidth: 34,
-            horizontalTitleGap: 10,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: borderRadius,
-            ),
-            onTap: selected ? null : onTap,
-          ),
-        ),
+        child: selected
+            ? LiquidGlass(
+                borderRadius: borderRadius,
+                tint: colors.surfaceContainerLowest,
+                accentColor: colors.primary,
+                borderColor: colors.primary,
+                borderOpacity: 0.34,
+                shadowAlpha: 0.07,
+                intensity: LiquidGlassIntensity.subtle,
+                child: tile,
+              )
+            : tile,
       ),
     );
   }
@@ -1316,38 +1272,35 @@ class _HeaderConnectionPill extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLowest.withValues(alpha: 0.84),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.76),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                Icons.wifi_tethering,
-                size: 15,
-                color: colors.primary,
+      child: LiquidGlass(
+        borderRadius: BorderRadius.circular(999),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        tint: colors.surfaceContainerLowest,
+        accentColor: colors.primary,
+        borderOpacity: 0.56,
+        shadowAlpha: 0,
+        intensity: LiquidGlassIntensity.subtle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              Icons.wifi_tethering,
+              size: 15,
+              color: colors.primary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                uri,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  uri,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1760,76 +1713,71 @@ class _Composer extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-      child: DecoratedBox(
+      child: LiquidGlass(
         key: const Key('chat_composer_surface'),
-        decoration: _templateSurfaceDecoration(
-          colors,
-          radius: 32,
-          color: Color.alphaBlend(
-            colors.primaryContainer.withValues(alpha: 0.08),
-            colors.surfaceContainerLowest,
-          ),
-          showBorder: false,
-          shadowAlpha: 0.10,
-          blurRadius: 28,
-          offset: const Offset(0, 12),
+        borderRadius: BorderRadius.circular(32),
+        padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
+        tint: Color.alphaBlend(
+          colors.primaryContainer.withValues(alpha: 0.08),
+          colors.surfaceContainerLowest,
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 42),
-                child: TextField(
-                  controller: textController,
-                  minLines: 1,
-                  maxLines: 5,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  onChanged: onChanged,
-                  style: _scaledTextStyle(
-                    Theme.of(context).textTheme.bodyMedium,
-                    displaySettings.messageFontScale,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: '输入消息与 AI 聊天',
-                    contentPadding: EdgeInsets.zero,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                  ),
-                  enabled: !controller.isSending,
+        accentColor: colors.primary,
+        borderOpacity: 0.42,
+        shadowAlpha: 0.11,
+        intensity: LiquidGlassIntensity.prominent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 42),
+              child: TextField(
+                controller: textController,
+                minLines: 1,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                onChanged: onChanged,
+                style: _scaledTextStyle(
+                  Theme.of(context).textTheme.bodyMedium,
+                  displaySettings.messageFontScale,
                 ),
+                decoration: const InputDecoration(
+                  hintText: '输入消息与 AI 聊天',
+                  contentPadding: EdgeInsets.zero,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
+                enabled: !controller.isSending,
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  _ComposerToolIcon(
-                    tooltip: '快捷命令',
-                    icon: Icons.auto_awesome,
-                    color: colors.secondary,
-                    onPressed: onShortcutCommandsPressed,
-                  ),
-                  const SizedBox(width: 18),
-                  _ComposerToolIcon(
-                    tooltip: '快捷短语',
-                    icon: Icons.bolt_outlined,
-                    onPressed: onQuickPhrasesPressed,
-                  ),
-                  const Spacer(),
-                  const _ComposerToolIcon(icon: Icons.add),
-                  const SizedBox(width: 10),
-                  _ComposerSendButton(
-                    isSending: controller.isSending,
-                    onPressed: onSend,
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                _ComposerToolIcon(
+                  tooltip: '快捷命令',
+                  icon: Icons.auto_awesome,
+                  color: colors.secondary,
+                  onPressed: onShortcutCommandsPressed,
+                ),
+                const SizedBox(width: 18),
+                _ComposerToolIcon(
+                  tooltip: '快捷短语',
+                  icon: Icons.bolt_outlined,
+                  onPressed: onQuickPhrasesPressed,
+                ),
+                const Spacer(),
+                const _ComposerToolIcon(icon: Icons.add),
+                const SizedBox(width: 10),
+                _ComposerSendButton(
+                  isSending: controller.isSending,
+                  onPressed: onSend,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

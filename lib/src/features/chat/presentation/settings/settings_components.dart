@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../widgets/liquid_glass.dart';
+
 const double settingsCardRadius = 20;
 const Color settingsPageBackground = Color(0xfffbf9fd);
 const Color settingsCardBackground = Colors.white;
@@ -31,11 +33,41 @@ Color settingsDividerColorFor(BuildContext context) {
 
 BoxDecoration settingsCardDecoration(BuildContext context) {
   final palette = _SettingsPalette.of(context);
+  final colors = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return BoxDecoration(
-    color: palette.card,
+    color: palette.card.withValues(alpha: isDark ? 0.82 : 0.90),
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[
+        Color.alphaBlend(
+          Colors.white.withValues(alpha: isDark ? 0.08 : 0.46),
+          palette.card,
+        ).withValues(alpha: isDark ? 0.84 : 0.94),
+        palette.card.withValues(alpha: isDark ? 0.78 : 0.86),
+        Color.alphaBlend(
+          colors.primary.withValues(alpha: isDark ? 0.12 : 0.07),
+          palette.card,
+        ).withValues(alpha: isDark ? 0.82 : 0.90),
+      ],
+    ),
     borderRadius: BorderRadius.circular(settingsCardRadius),
-    border: Border.all(color: palette.divider.withValues(alpha: 0.35)),
-    boxShadow: palette.cardShadow,
+    border: Border.all(
+      color: Color.alphaBlend(
+        Colors.white.withValues(alpha: isDark ? 0.16 : 0.44),
+        palette.divider,
+      ).withValues(alpha: isDark ? 0.54 : 0.62),
+    ),
+    boxShadow: <BoxShadow>[
+      ...palette.cardShadow,
+      if (!isDark)
+        BoxShadow(
+          color: colors.shadow.withValues(alpha: 0.05),
+          blurRadius: 24,
+          offset: const Offset(0, 10),
+        ),
+    ],
   );
 }
 
@@ -56,12 +88,15 @@ class SettingsScreenFrame extends StatelessWidget {
     final palette = _SettingsPalette.of(context);
     return Scaffold(
       backgroundColor: palette.background,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            SettingsTopBar(title: title, actions: actions),
-            Expanded(child: child),
-          ],
+      body: LiquidGlassBackdrop(
+        baseColor: palette.background,
+        child: SafeArea(
+          child: Column(
+            children: <Widget>[
+              SettingsTopBar(title: title, actions: actions),
+              Expanded(child: child),
+            ],
+          ),
         ),
       ),
     );
@@ -89,7 +124,9 @@ class SettingsTopBar extends StatelessWidget {
     );
 
     return DecoratedBox(
-      decoration: BoxDecoration(color: palette.background),
+      decoration: BoxDecoration(
+        color: palette.background.withValues(alpha: 0.74),
+      ),
       child: SizedBox(
         height: 100,
         child: Padding(

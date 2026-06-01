@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../formatters/chat_message_time_formatter.dart';
+import 'liquid_glass.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -47,21 +48,22 @@ class MessageBubble extends StatelessWidget {
             constraints.maxWidth < 840 ? constraints.maxWidth * 0.86 : 720.0;
         final showAvatar = displaySettings.showMessageAvatars && maxWidth >= 96;
         final bubbleMaxWidth = showAvatar ? maxWidth - 43 : maxWidth;
+        final bubbleRadius = BorderRadius.only(
+          topLeft: Radius.circular(isUser ? 22 : 10),
+          topRight: Radius.circular(isUser ? 10 : 22),
+          bottomLeft: const Radius.circular(22),
+          bottomRight: const Radius.circular(22),
+        );
         final bubble = ConstrainedBox(
           constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: style.gradient == null ? style.background : null,
-              gradient: style.gradient,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(isUser ? 22 : 10),
-                topRight: Radius.circular(isUser ? 10 : 22),
-                bottomLeft: const Radius.circular(22),
-                bottomRight: const Radius.circular(22),
-              ),
-              border: Border.all(color: style.border, width: 0.7),
-              boxShadow: style.shadows,
-            ),
+          child: LiquidGlass(
+            borderRadius: bubbleRadius,
+            tint: style.background,
+            accentColor: style.accent,
+            borderColor: style.border,
+            borderOpacity: style.borderOpacity,
+            shadowAlpha: style.shadowAlpha,
+            intensity: style.intensity,
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: displaySettings.compactMessageSpacing ? 12 : 15,
@@ -255,15 +257,19 @@ class _BubbleStyle {
     required this.background,
     required this.foreground,
     required this.border,
-    this.gradient,
-    this.shadows,
+    required this.accent,
+    required this.borderOpacity,
+    required this.shadowAlpha,
+    required this.intensity,
   });
 
   final Color background;
   final Color foreground;
   final Color border;
-  final Gradient? gradient;
-  final List<BoxShadow>? shadows;
+  final Color accent;
+  final double borderOpacity;
+  final double shadowAlpha;
+  final LiquidGlassIntensity intensity;
 
   static _BubbleStyle resolve(
     ColorScheme colors, {
@@ -271,19 +277,15 @@ class _BubbleStyle {
     required bool isSystem,
     required ChatMessageBackground background,
   }) {
-    final assistantShadows = <BoxShadow>[
-      BoxShadow(
-        color: colors.shadow.withValues(alpha: 0.06),
-        blurRadius: 18,
-        offset: const Offset(0, 8),
-      ),
-    ];
-
     if (isSystem) {
       return _BubbleStyle(
         background: colors.errorContainer,
         foreground: colors.onErrorContainer,
         border: colors.error,
+        accent: colors.error,
+        borderOpacity: 0.72,
+        shadowAlpha: 0.04,
+        intensity: LiquidGlassIntensity.subtle,
       );
     }
 
@@ -294,28 +296,12 @@ class _BubbleStyle {
           border: isUser
               ? colors.primary.withValues(alpha: 0.24)
               : colors.outlineVariant.withValues(alpha: 0.82),
-          gradient: isUser
-              ? LinearGradient(
-                  colors: <Color>[
-                    colors.primary,
-                    Color.alphaBlend(
-                      colors.secondary.withValues(alpha: 0.34),
-                      colors.primary,
-                    ),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          shadows: isUser
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: colors.primary.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : assistantShadows,
+          accent: isUser ? colors.secondary : colors.primary,
+          borderOpacity: isUser ? 0.36 : 0.64,
+          shadowAlpha: isUser ? 0.14 : 0.07,
+          intensity: isUser
+              ? LiquidGlassIntensity.prominent
+              : LiquidGlassIntensity.balanced,
         ),
       ChatMessageBackground.soft => _BubbleStyle(
           background:
@@ -324,12 +310,19 @@ class _BubbleStyle {
           border: isUser
               ? colors.secondary.withValues(alpha: 0.34)
               : colors.outlineVariant.withValues(alpha: 0.82),
-          shadows: assistantShadows,
+          accent: isUser ? colors.primary : colors.secondary,
+          borderOpacity: isUser ? 0.48 : 0.58,
+          shadowAlpha: 0.07,
+          intensity: LiquidGlassIntensity.subtle,
         ),
       ChatMessageBackground.plain => _BubbleStyle(
           background: colors.surfaceContainerLowest,
           foreground: colors.onSurface,
           border: isUser ? colors.primary : colors.outlineVariant,
+          accent: isUser ? colors.primary : colors.secondary,
+          borderOpacity: isUser ? 0.36 : 0.50,
+          shadowAlpha: isUser ? 0.05 : 0.04,
+          intensity: LiquidGlassIntensity.subtle,
         ),
     };
   }
