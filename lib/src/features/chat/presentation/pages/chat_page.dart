@@ -79,6 +79,7 @@ class _ChatPageState extends State<ChatPage> {
                       child: SafeArea(
                         child: _Sidebar(
                           controller: widget.controller,
+                          displaySettings: widget.displaySettings,
                           onSettingsPressed: _openSettings,
                           closeAfterAction: true,
                           showBorder: false,
@@ -99,6 +100,7 @@ class _ChatPageState extends State<ChatPage> {
                         expanded: desktopSidebarExpanded,
                         child: _Sidebar(
                           controller: widget.controller,
+                          displaySettings: widget.displaySettings,
                           onSettingsPressed: _openSettings,
                         ),
                       ),
@@ -212,10 +214,19 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _retryLastMessage() async {
+    if (widget.displaySettings.confirmBeforeRegenerate) {
+      final confirmed = await _confirmRegenerate();
+      if (!confirmed) {
+        return;
+      }
+    }
+
     _syncRuntimeSettings();
     final source = widget.controller.lastRetryableUserMessageContent;
     final appSettings = widget.appSettingsController?.settings;
     await widget.controller.retryLastUserMessage(
+      deleteFollowingMessages:
+          widget.displaySettings.deleteMessagesBelowOnRegenerate,
       transportContent: source == null || appSettings == null
           ? null
           : _buildTransportContent(source, appSettings),
@@ -226,6 +237,30 @@ class _ChatPageState extends State<ChatPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduleScrollToBottom(widget.displaySettings.autoScrollDelay);
     });
+  }
+
+  Future<bool> _confirmRegenerate() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('重新生成消息？'),
+          content: const Text('将重新发送上一条消息并生成新的回复。'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('重新生成'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed == true;
   }
 
   void _scheduleScrollToBottom(Duration delay) {
@@ -586,6 +621,7 @@ class _DesktopSidebarTransition extends StatelessWidget {
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.controller,
+    required this.displaySettings,
     required this.onSettingsPressed,
     this.closeAfterAction = false,
     this.showBorder = true,
@@ -595,6 +631,7 @@ class _Sidebar extends StatelessWidget {
   static const double expandedWidth = 280;
 
   final ChatController controller;
+  final ChatDisplaySettings displaySettings;
   final VoidCallback onSettingsPressed;
   final bool closeAfterAction;
   final bool showBorder;
@@ -654,6 +691,7 @@ class _Sidebar extends StatelessWidget {
             Expanded(
               child: _ConversationList(
                 controller: controller,
+                displaySettings: displaySettings,
                 closeAfterSelection: closeAfterAction,
               ),
             ),
@@ -849,10 +887,12 @@ class _ConversationAvatar extends StatelessWidget {
 class _ConversationList extends StatelessWidget {
   const _ConversationList({
     required this.controller,
+    required this.displaySettings,
     required this.closeAfterSelection,
   });
 
   final ChatController controller;
+  final ChatDisplaySettings displaySettings;
   final bool closeAfterSelection;
 
   @override
@@ -876,6 +916,7 @@ class _ConversationList extends StatelessWidget {
         return _ConversationTile(
           conversation: conversation,
           selected: conversation.id == controller.conversationId,
+          showDate: displaySettings.showConversationListDates,
           onRename: () => unawaited(
             _showRenameDialog(context, controller, conversation),
           ),
@@ -886,7 +927,8 @@ class _ConversationList extends StatelessWidget {
                   ),
           onTap: () {
             unawaited(controller.selectConversation(conversation.id));
-            if (closeAfterSelection) {
+            if (closeAfterSelection &&
+                !displaySettings.keepDrawerOpenOnConversationSelect) {
               unawaited(Navigator.of(context).maybePop());
             }
           },
@@ -900,6 +942,7 @@ class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
     required this.conversation,
     required this.selected,
+    required this.showDate,
     required this.onTap,
     required this.onRename,
     required this.onDelete,
@@ -907,6 +950,7 @@ class _ConversationTile extends StatelessWidget {
 
   final ChatConversationSummary conversation;
   final bool selected;
+  final bool showDate;
   final VoidCallback onTap;
   final VoidCallback onRename;
   final VoidCallback? onDelete;
@@ -918,6 +962,10 @@ class _ConversationTile extends StatelessWidget {
         ? conversation.settings.websocketUri.toString()
         : conversation.lastMessagePreview;
     final borderRadius = BorderRadius.circular(18);
+    final subtitleTextStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colors.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        );
     final tile = Material(
       color: Colors.transparent,
       borderRadius: borderRadius,
@@ -934,15 +982,34 @@ class _ConversationTile extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
         ),
-        subtitle: Text(
-          preview,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+        subtitle: showDate
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: subtitleTextStyle,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatConversationDate(conversation.updatedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: subtitleTextStyle?.copyWith(
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.72),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                preview,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: subtitleTextStyle,
               ),
-        ),
         trailing: _ConversationMessageCount(count: conversation.messageCount),
         dense: true,
         minLeadingWidth: 34,
@@ -1045,6 +1112,19 @@ class _ConversationTile extends StatelessWidget {
 }
 
 enum _ConversationMenuAction { rename, delete }
+
+String _formatConversationDate(DateTime value) {
+  final now = DateTime.now();
+  final local = value.toLocal();
+  final minute = local.minute.toString().padLeft(2, '0');
+  if (local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day) {
+    return '今天 ${local.hour}:$minute';
+  }
+
+  return '${local.month}月${local.day}日 ${local.hour}:$minute';
+}
 
 class _ConversationMessageCount extends StatelessWidget {
   const _ConversationMessageCount({
@@ -1323,7 +1403,7 @@ class _MessageList extends StatelessWidget {
       return const _EmptyMessageView();
     }
 
-    return ListView.separated(
+    final list = ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
       itemCount: controller.messages.length,
@@ -1341,6 +1421,79 @@ class _MessageList extends StatelessWidget {
               : null,
         );
       },
+    );
+
+    if (!displaySettings.showMessageNavigationButtons ||
+        controller.messages.length < 2) {
+      return list;
+    }
+
+    return Stack(
+      children: <Widget>[
+        list,
+        Positioned(
+          right: 14,
+          bottom: 14,
+          child: _MessageNavigationControls(scrollController: scrollController),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageNavigationControls extends StatelessWidget {
+  const _MessageNavigationControls({
+    required this.scrollController,
+  });
+
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return LiquidGlass(
+      borderRadius: BorderRadius.circular(18),
+      tint: colors.surfaceContainerLowest,
+      borderOpacity: 0.46,
+      shadowAlpha: 0.12,
+      intensity: LiquidGlassIntensity.subtle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            IconButton(
+              tooltip: '上一段消息',
+              icon: const Icon(Icons.keyboard_arrow_up),
+              onPressed: () => _scrollByPage(-1),
+            ),
+            IconButton(
+              tooltip: '下一段消息',
+              icon: const Icon(Icons.keyboard_arrow_down),
+              onPressed: () => _scrollByPage(1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _scrollByPage(int direction) {
+    if (!scrollController.hasClients) {
+      return;
+    }
+
+    final position = scrollController.position;
+    final delta = position.viewportDimension * 0.72 * direction;
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    unawaited(
+      scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      ),
     );
   }
 }
@@ -1684,6 +1837,10 @@ class _EmptyMessagePainter extends CustomPainter {
   }
 }
 
+class _SendMessageIntent extends Intent {
+  const _SendMessageIntent();
+}
+
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -1706,6 +1863,54 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textField = TextField(
+      controller: textController,
+      minLines: 1,
+      maxLines: 5,
+      keyboardType: TextInputType.multiline,
+      textInputAction: displaySettings.sendMessageWithEnterKey
+          ? TextInputAction.send
+          : TextInputAction.newline,
+      onSubmitted: displaySettings.sendMessageWithEnterKey
+          ? (_) => _sendIfReady()
+          : null,
+      onChanged: onChanged,
+      style: _scaledTextStyle(
+        Theme.of(context).textTheme.bodyMedium,
+        displaySettings.messageFontScale,
+      ),
+      decoration: const InputDecoration(
+        hintText: '输入消息与 AI 聊天',
+        contentPadding: EdgeInsets.zero,
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+      ),
+      enabled: !controller.isSending,
+    );
+    final input = displaySettings.sendMessageWithEnterKey
+        ? Shortcuts(
+            shortcuts: const <ShortcutActivator, Intent>{
+              SingleActivator(LogicalKeyboardKey.enter): _SendMessageIntent(),
+              SingleActivator(LogicalKeyboardKey.numpadEnter):
+                  _SendMessageIntent(),
+            },
+            child: Actions(
+              actions: <Type, Action<Intent>>{
+                _SendMessageIntent: CallbackAction<Intent>(
+                  onInvoke: (_) {
+                    _sendIfReady();
+                    return null;
+                  },
+                ),
+              },
+              child: textField,
+            ),
+          )
+        : textField;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: LiquidGlass(
@@ -1724,28 +1929,7 @@ class _Composer extends StatelessWidget {
           children: <Widget>[
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 42),
-              child: TextField(
-                controller: textController,
-                minLines: 1,
-                maxLines: 5,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                onChanged: onChanged,
-                style: _scaledTextStyle(
-                  Theme.of(context).textTheme.bodyMedium,
-                  displaySettings.messageFontScale,
-                ),
-                decoration: const InputDecoration(
-                  hintText: '输入消息与 AI 聊天',
-                  contentPadding: EdgeInsets.zero,
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                ),
-                enabled: !controller.isSending,
-              ),
+              child: input,
             ),
             const SizedBox(height: 8),
             Row(
@@ -1775,6 +1959,14 @@ class _Composer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _sendIfReady() {
+    if (controller.isSending || textController.text.trim().isEmpty) {
+      return;
+    }
+
+    onSend();
   }
 }
 

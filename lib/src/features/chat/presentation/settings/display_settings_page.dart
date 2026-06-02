@@ -378,8 +378,18 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
   }
 
   String _behaviorSummary() {
-    final feedback = _settings.hapticFeedback ? '触觉' : '无触觉';
-    return '${_settings.colorMode.label} · $feedback';
+    final enabledCount = <bool>[
+      _settings.foldThinkingSteps,
+      _settings.deleteMessagesBelowOnRegenerate,
+      _settings.confirmBeforeRegenerate,
+      _settings.showMessageNavigationButtons,
+      _settings.showConversationListDates,
+      _settings.keepDrawerOpenOnConversationSelect,
+      _settings.startNewConversationOnLaunch,
+      _settings.sendMessageWithEnterKey,
+    ].where((enabled) => enabled).length;
+
+    return '$enabledCount 项启用';
   }
 
   void _update(ChatDisplaySettings settings) {
@@ -768,115 +778,107 @@ class _BehaviorDisplaySettingsPageState
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
         children: <Widget>[
-          SettingsSection(
-            title: '启动',
-            topPadding: 18,
+          _RenderingSettingsCard(
             children: <Widget>[
-              SettingsRow(
-                key: const Key('behavior_color_mode_row'),
-                icon: Icons.dark_mode_outlined,
-                title: '颜色模式',
-                value: _settings.colorMode.label,
-                onTap: () => unawaited(_openColorMode()),
-              ),
-            ],
-          ),
-          SettingsSection(
-            title: '发送',
-            children: <Widget>[
-              SettingsSwitchRow(
-                key: const Key('behavior_haptic_feedback_row'),
-                icon: Icons.vibration_outlined,
-                title: '触觉反馈',
-                value: _settings.hapticFeedback,
+              _RenderingSwitchRow(
+                key: const Key('behavior_fold_thinking_steps_row'),
+                switchKey: const Key('behavior_fold_thinking_steps_switch'),
+                icon: const Icon(Icons.account_tree_outlined, size: 25),
+                title: '折叠思考步骤',
+                value: _settings.foldThinkingSteps,
                 onChanged: (value) {
-                  _update(_settings.copyWith(hapticFeedback: value));
+                  _update(_settings.copyWith(foldThinkingSteps: value));
                 },
               ),
-              SettingsRow(
-                key: const Key('behavior_auto_scroll_delay_row'),
-                icon: Icons.arrow_downward,
-                title: '自动回到底部延迟',
-                value: _settings.autoScrollDelayLabel,
-                onTap: () => unawaited(_openAutoScrollDelay()),
+              _RenderingSwitchRow(
+                key: const Key('behavior_delete_below_regenerate_row'),
+                switchKey: const Key('behavior_delete_below_regenerate_switch'),
+                icon: const Icon(Icons.refresh, size: 25),
+                title: '重新生成时删除下面的消息',
+                value: _settings.deleteMessagesBelowOnRegenerate,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(
+                      deleteMessagesBelowOnRegenerate: value,
+                    ),
+                  );
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_confirm_regenerate_row'),
+                switchKey: const Key('behavior_confirm_regenerate_switch'),
+                icon: const Icon(Icons.chat_bubble_outline, size: 25),
+                title: '重新生成前弹出确认',
+                value: _settings.confirmBeforeRegenerate,
+                onChanged: (value) {
+                  _update(_settings.copyWith(confirmBeforeRegenerate: value));
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_message_navigation_row'),
+                switchKey: const Key('behavior_message_navigation_switch'),
+                icon: const Icon(Icons.chevron_right, size: 26),
+                title: '消息导航按钮',
+                value: _settings.showMessageNavigationButtons,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(showMessageNavigationButtons: value),
+                  );
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_conversation_dates_row'),
+                switchKey: const Key('behavior_conversation_dates_switch'),
+                icon: const Icon(Icons.calendar_today_outlined, size: 24),
+                title: '显示对话列表日期',
+                value: _settings.showConversationListDates,
+                onChanged: (value) {
+                  _update(_settings.copyWith(showConversationListDates: value));
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_keep_drawer_open_row'),
+                switchKey: const Key('behavior_keep_drawer_open_switch'),
+                icon: const Icon(Icons.view_sidebar_outlined, size: 25),
+                title: '点选话题时不自动关闭侧边栏',
+                value: _settings.keepDrawerOpenOnConversationSelect,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(
+                      keepDrawerOpenOnConversationSelect: value,
+                    ),
+                  );
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_start_new_conversation_row'),
+                switchKey: const Key('behavior_start_new_conversation_switch'),
+                icon: const Icon(Icons.add_comment_outlined, size: 25),
+                title: '启动时新建对话',
+                value: _settings.startNewConversationOnLaunch,
+                onChanged: (value) {
+                  _update(
+                    _settings.copyWith(startNewConversationOnLaunch: value),
+                  );
+                },
+              ),
+              _RenderingSwitchRow(
+                key: const Key('behavior_enter_to_send_row'),
+                switchKey: const Key('behavior_enter_to_send_switch'),
+                icon: const Icon(Icons.keyboard_return, size: 25),
+                title: '回车键发送消息',
+                value: _settings.sendMessageWithEnterKey,
+                onChanged: (value) {
+                  _update(_settings.copyWith(sendMessageWithEnterKey: value));
+                },
               ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _openColorMode() {
-    return _showChoiceSheet<ChatColorMode>(
-      title: '颜色模式',
-      selected: _settings.colorMode,
-      items: ChatColorMode.values.map((mode) {
-        return _ChoiceItem<ChatColorMode>(
-          key: 'behavior_color_mode_${mode.name}',
-          label: mode.label,
-          value: mode,
-        );
-      }).toList(),
-      onSelected: (mode) {
-        _update(_settings.copyWith(colorMode: mode));
-      },
-    );
-  }
-
-  Future<void> _openAutoScrollDelay() {
-    return _showSettingsSliderSheet(
-      context: context,
-      title: '自动回到底部延迟',
-      value: _settings.autoScrollDelay.inSeconds.toDouble(),
-      min: 0,
-      max: 60,
-      divisions: 60,
-      sliderKey: const Key('behavior_auto_scroll_delay_slider'),
-      subtitle: '用户停止滚动后等待多久再自动回到底部',
-      valueLabelBuilder: _formatDelaySliderValue,
-      tickLabels: const <_SliderTickLabel>[
-        _SliderTickLabel(0, '立即'),
-        _SliderTickLabel(15, '15s'),
-        _SliderTickLabel(30, '30s'),
-        _SliderTickLabel(45, '45s'),
-        _SliderTickLabel(60, '60s'),
-      ],
-      onChanged: (value) {
-        _update(
-          _settings.copyWith(
-            autoScrollDelay: Duration(seconds: value.round()),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showChoiceSheet<T>({
-    required String title,
-    required T selected,
-    required List<_ChoiceItem<T>> items,
-    required ValueChanged<T> onSelected,
-  }) async {
-    final next = await showModalBottomSheet<T>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return _ChoiceSheet<T>(
-          title: title,
-          selected: selected,
-          items: items,
-        );
-      },
-    );
-
-    if (next == null || !mounted) {
-      return;
-    }
-
-    onSelected(next);
   }
 
   void _update(ChatDisplaySettings settings) {
@@ -888,9 +890,16 @@ class _BehaviorDisplaySettingsPageState
     const defaults = ChatDisplaySettings();
     _update(
       _settings.copyWith(
-        colorMode: defaults.colorMode,
-        hapticFeedback: defaults.hapticFeedback,
-        autoScrollDelay: defaults.autoScrollDelay,
+        foldThinkingSteps: defaults.foldThinkingSteps,
+        deleteMessagesBelowOnRegenerate:
+            defaults.deleteMessagesBelowOnRegenerate,
+        confirmBeforeRegenerate: defaults.confirmBeforeRegenerate,
+        showMessageNavigationButtons: defaults.showMessageNavigationButtons,
+        showConversationListDates: defaults.showConversationListDates,
+        keepDrawerOpenOnConversationSelect:
+            defaults.keepDrawerOpenOnConversationSelect,
+        startNewConversationOnLaunch: defaults.startNewConversationOnLaunch,
+        sendMessageWithEnterKey: defaults.sendMessageWithEnterKey,
       ),
     );
   }

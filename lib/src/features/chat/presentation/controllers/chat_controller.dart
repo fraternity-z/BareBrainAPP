@@ -373,7 +373,10 @@ class ChatController extends ChangeNotifier {
     unawaited(_saveSnapshot());
   }
 
-  Future<void> retryLastUserMessage({String? transportContent}) async {
+  Future<void> retryLastUserMessage({
+    bool deleteFollowingMessages = true,
+    String? transportContent,
+  }) async {
     if (_isSending) {
       return;
     }
@@ -392,7 +395,9 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
-    _messages.removeRange(retryIndex + 1, _messages.length);
+    if (deleteFollowingMessages) {
+      _messages.removeRange(retryIndex + 1, _messages.length);
+    }
     await _sendNormalized(
       content,
       existingUserMessageIndex: retryIndex,

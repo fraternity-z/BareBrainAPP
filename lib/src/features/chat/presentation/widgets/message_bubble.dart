@@ -87,16 +87,13 @@ class MessageBubble extends StatelessWidget {
                       height: displaySettings.compactMessageSpacing ? 4 : 6,
                     ),
                   ],
-                  if (displaySettings.selectableMessageText)
-                    SelectableText(
-                      message.content,
-                      style: contentStyle,
-                    )
-                  else
-                    Text(
-                      message.content,
-                      style: contentStyle,
-                    ),
+                  _MessageContent(
+                    content: message.content,
+                    foreground: style.foreground,
+                    textStyle: contentStyle,
+                    selectable: displaySettings.selectableMessageText,
+                    foldThinkingSteps: displaySettings.foldThinkingSteps,
+                  ),
                   if (displaySettings.showMessageTimestamps) ...<Widget>[
                     SizedBox(
                       height: displaySettings.compactMessageSpacing ? 4 : 6,
@@ -188,6 +185,217 @@ class MessageBubble extends StatelessWidget {
       },
     );
   }
+}
+
+class _MessageContent extends StatelessWidget {
+  const _MessageContent({
+    required this.content,
+    required this.foreground,
+    required this.textStyle,
+    required this.selectable,
+    required this.foldThinkingSteps,
+  });
+
+  final String content;
+  final Color foreground;
+  final TextStyle? textStyle;
+  final bool selectable;
+  final bool foldThinkingSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!foldThinkingSteps) {
+      return _MessageText(
+        content: content,
+        selectable: selectable,
+        style: textStyle,
+      );
+    }
+
+    final segments = _parseThinkingSegments(content);
+    if (segments.length == 1 && !segments.first.isThinking) {
+      return _MessageText(
+        content: content,
+        selectable: selectable,
+        style: textStyle,
+      );
+    }
+
+    final children = <Widget>[];
+    for (final segment in segments) {
+      final text = segment.content.trim();
+      if (text.isEmpty) {
+        continue;
+      }
+
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 8));
+      }
+
+      children.add(
+        segment.isThinking
+            ? _ThinkingBlock(
+                content: text,
+                foreground: foreground,
+                textStyle: textStyle,
+                selectable: selectable,
+              )
+            : _MessageText(
+                content: text,
+                selectable: selectable,
+                style: textStyle,
+              ),
+      );
+    }
+
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+class _MessageText extends StatelessWidget {
+  const _MessageText({
+    required this.content,
+    required this.selectable,
+    required this.style,
+  });
+
+  final String content;
+  final bool selectable;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectable) {
+      return SelectableText(content, style: style);
+    }
+
+    return Text(content, style: style);
+  }
+}
+
+class _ThinkingBlock extends StatelessWidget {
+  const _ThinkingBlock({
+    required this.content,
+    required this.foreground,
+    required this.textStyle,
+    required this.selectable,
+  });
+
+  final String content;
+  final Color foreground;
+  final TextStyle? textStyle;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: foreground.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: foreground.withValues(alpha: 0.16)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          collapsedIconColor: foreground.withValues(alpha: 0.78),
+          iconColor: foreground,
+          title: Row(
+            children: <Widget>[
+              Icon(
+                Icons.psychology_outlined,
+                size: 17,
+                color: foreground.withValues(alpha: 0.78),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '思考步骤',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle?.copyWith(
+                    color: foreground.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          children: <Widget>[
+            _MessageText(
+              content: content,
+              selectable: selectable,
+              style: textStyle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThinkingSegment {
+  const _ThinkingSegment({
+    required this.content,
+    required this.isThinking,
+  });
+
+  final String content;
+  final bool isThinking;
+}
+
+List<_ThinkingSegment> _parseThinkingSegments(String content) {
+  final pattern = RegExp(
+    r'<think(?:ing)?>([\s\S]*?)</think(?:ing)?>',
+    caseSensitive: false,
+  );
+  final matches = pattern.allMatches(content).toList(growable: false);
+  if (matches.isEmpty) {
+    return <_ThinkingSegment>[
+      _ThinkingSegment(content: content, isThinking: false),
+    ];
+  }
+
+  final segments = <_ThinkingSegment>[];
+  var cursor = 0;
+  for (final match in matches) {
+    if (match.start > cursor) {
+      segments.add(
+        _ThinkingSegment(
+          content: content.substring(cursor, match.start),
+          isThinking: false,
+        ),
+      );
+    }
+
+    segments.add(
+      _ThinkingSegment(
+        content: match.group(1) ?? '',
+        isThinking: true,
+      ),
+    );
+    cursor = match.end;
+  }
+
+  if (cursor < content.length) {
+    segments.add(
+      _ThinkingSegment(
+        content: content.substring(cursor),
+        isThinking: false,
+      ),
+    );
+  }
+
+  return segments;
 }
 
 class _MessageAuthorAvatar extends StatelessWidget {

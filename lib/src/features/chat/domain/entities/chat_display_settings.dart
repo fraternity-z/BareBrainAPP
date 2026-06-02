@@ -67,6 +67,14 @@ class ChatDisplaySettings {
     this.assistantMessageMarkdownRendering = true,
     this.autoFoldCodeBlocks = false,
     this.mobileCodeBlockAutoWrap = false,
+    this.foldThinkingSteps = false,
+    this.deleteMessagesBelowOnRegenerate = false,
+    this.confirmBeforeRegenerate = true,
+    this.showMessageNavigationButtons = true,
+    this.showConversationListDates = false,
+    this.keepDrawerOpenOnConversationSelect = false,
+    this.startNewConversationOnLaunch = true,
+    this.sendMessageWithEnterKey = true,
     this.hapticFeedback = true,
     this.messageBackground = ChatMessageBackground.standard,
     this.appFont = ChatAppFont.system,
@@ -92,6 +100,14 @@ class ChatDisplaySettings {
   final bool assistantMessageMarkdownRendering;
   final bool autoFoldCodeBlocks;
   final bool mobileCodeBlockAutoWrap;
+  final bool foldThinkingSteps;
+  final bool deleteMessagesBelowOnRegenerate;
+  final bool confirmBeforeRegenerate;
+  final bool showMessageNavigationButtons;
+  final bool showConversationListDates;
+  final bool keepDrawerOpenOnConversationSelect;
+  final bool startNewConversationOnLaunch;
+  final bool sendMessageWithEnterKey;
   final bool hapticFeedback;
   final ChatMessageBackground messageBackground;
   final ChatAppFont appFont;
@@ -116,6 +132,14 @@ class ChatDisplaySettings {
     bool? assistantMessageMarkdownRendering,
     bool? autoFoldCodeBlocks,
     bool? mobileCodeBlockAutoWrap,
+    bool? foldThinkingSteps,
+    bool? deleteMessagesBelowOnRegenerate,
+    bool? confirmBeforeRegenerate,
+    bool? showMessageNavigationButtons,
+    bool? showConversationListDates,
+    bool? keepDrawerOpenOnConversationSelect,
+    bool? startNewConversationOnLaunch,
+    bool? sendMessageWithEnterKey,
     bool? hapticFeedback,
     ChatMessageBackground? messageBackground,
     ChatAppFont? appFont,
@@ -149,6 +173,21 @@ class ChatDisplaySettings {
       autoFoldCodeBlocks: autoFoldCodeBlocks ?? this.autoFoldCodeBlocks,
       mobileCodeBlockAutoWrap:
           mobileCodeBlockAutoWrap ?? this.mobileCodeBlockAutoWrap,
+      foldThinkingSteps: foldThinkingSteps ?? this.foldThinkingSteps,
+      deleteMessagesBelowOnRegenerate: deleteMessagesBelowOnRegenerate ??
+          this.deleteMessagesBelowOnRegenerate,
+      confirmBeforeRegenerate:
+          confirmBeforeRegenerate ?? this.confirmBeforeRegenerate,
+      showMessageNavigationButtons:
+          showMessageNavigationButtons ?? this.showMessageNavigationButtons,
+      showConversationListDates:
+          showConversationListDates ?? this.showConversationListDates,
+      keepDrawerOpenOnConversationSelect: keepDrawerOpenOnConversationSelect ??
+          this.keepDrawerOpenOnConversationSelect,
+      startNewConversationOnLaunch:
+          startNewConversationOnLaunch ?? this.startNewConversationOnLaunch,
+      sendMessageWithEnterKey:
+          sendMessageWithEnterKey ?? this.sendMessageWithEnterKey,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
       messageBackground: messageBackground ?? this.messageBackground,
       appFont: appFont ?? this.appFont,
@@ -220,6 +259,18 @@ class ChatDisplaySettings {
                 assistantMessageMarkdownRendering &&
             other.autoFoldCodeBlocks == autoFoldCodeBlocks &&
             other.mobileCodeBlockAutoWrap == mobileCodeBlockAutoWrap &&
+            other.foldThinkingSteps == foldThinkingSteps &&
+            other.deleteMessagesBelowOnRegenerate ==
+                deleteMessagesBelowOnRegenerate &&
+            other.confirmBeforeRegenerate == confirmBeforeRegenerate &&
+            other.showMessageNavigationButtons ==
+                showMessageNavigationButtons &&
+            other.showConversationListDates == showConversationListDates &&
+            other.keepDrawerOpenOnConversationSelect ==
+                keepDrawerOpenOnConversationSelect &&
+            other.startNewConversationOnLaunch ==
+                startNewConversationOnLaunch &&
+            other.sendMessageWithEnterKey == sendMessageWithEnterKey &&
             other.hapticFeedback == hapticFeedback &&
             other.messageBackground == messageBackground &&
             other.appFont == appFont &&
@@ -247,6 +298,14 @@ class ChatDisplaySettings {
       assistantMessageMarkdownRendering,
       autoFoldCodeBlocks,
       mobileCodeBlockAutoWrap,
+      foldThinkingSteps,
+      deleteMessagesBelowOnRegenerate,
+      confirmBeforeRegenerate,
+      showMessageNavigationButtons,
+      showConversationListDates,
+      keepDrawerOpenOnConversationSelect,
+      startNewConversationOnLaunch,
+      sendMessageWithEnterKey,
       hapticFeedback,
       messageBackground,
       appFont,

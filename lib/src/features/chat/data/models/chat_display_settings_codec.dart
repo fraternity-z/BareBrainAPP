@@ -36,6 +36,16 @@ class ChatDisplaySettingsCodec {
           settings.assistantMessageMarkdownRendering,
       'autoFoldCodeBlocks': settings.autoFoldCodeBlocks,
       'mobileCodeBlockAutoWrap': settings.mobileCodeBlockAutoWrap,
+      'foldThinkingSteps': settings.foldThinkingSteps,
+      'deleteMessagesBelowOnRegenerate':
+          settings.deleteMessagesBelowOnRegenerate,
+      'confirmBeforeRegenerate': settings.confirmBeforeRegenerate,
+      'showMessageNavigationButtons': settings.showMessageNavigationButtons,
+      'showConversationListDates': settings.showConversationListDates,
+      'keepDrawerOpenOnConversationSelect':
+          settings.keepDrawerOpenOnConversationSelect,
+      'startNewConversationOnLaunch': settings.startNewConversationOnLaunch,
+      'sendMessageWithEnterKey': settings.sendMessageWithEnterKey,
       'hapticFeedback': settings.hapticFeedback,
       'messageBackground': settings.messageBackground.name,
       'appFont': settings.appFont.name,
@@ -110,6 +120,38 @@ class ChatDisplaySettingsCodec {
       mobileCodeBlockAutoWrap: _boolValue(
         value['mobileCodeBlockAutoWrap'],
         defaults.mobileCodeBlockAutoWrap,
+      ),
+      foldThinkingSteps: _boolValue(
+        value['foldThinkingSteps'],
+        defaults.foldThinkingSteps,
+      ),
+      deleteMessagesBelowOnRegenerate: _boolValue(
+        value['deleteMessagesBelowOnRegenerate'],
+        defaults.deleteMessagesBelowOnRegenerate,
+      ),
+      confirmBeforeRegenerate: _boolValue(
+        value['confirmBeforeRegenerate'],
+        defaults.confirmBeforeRegenerate,
+      ),
+      showMessageNavigationButtons: _boolValue(
+        value['showMessageNavigationButtons'],
+        defaults.showMessageNavigationButtons,
+      ),
+      showConversationListDates: _boolValue(
+        value['showConversationListDates'],
+        defaults.showConversationListDates,
+      ),
+      keepDrawerOpenOnConversationSelect: _boolValue(
+        value['keepDrawerOpenOnConversationSelect'],
+        defaults.keepDrawerOpenOnConversationSelect,
+      ),
+      startNewConversationOnLaunch: _boolValue(
+        value['startNewConversationOnLaunch'],
+        defaults.startNewConversationOnLaunch,
+      ),
+      sendMessageWithEnterKey: _boolValue(
+        value['sendMessageWithEnterKey'],
+        defaults.sendMessageWithEnterKey,
       ),
       hapticFeedback: _boolValue(
         value['hapticFeedback'],
