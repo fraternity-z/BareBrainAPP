@@ -8,7 +8,7 @@ enum LiquidGlassIntensity {
   prominent,
 }
 
-class LiquidGlassBackdrop extends StatefulWidget {
+class LiquidGlassBackdrop extends StatelessWidget {
   const LiquidGlassBackdrop({
     required this.baseColor,
     required this.child,
@@ -19,58 +19,10 @@ class LiquidGlassBackdrop extends StatefulWidget {
   final Widget child;
 
   @override
-  State<LiquidGlassBackdrop> createState() => _LiquidGlassBackdropState();
-}
-
-class _LiquidGlassBackdropState extends State<LiquidGlassBackdrop>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: widget.baseColor,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          Positioned.fill(
-            child: IgnorePointer(
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) {
-                    return CustomPaint(
-                      painter: _LiquidGlassBackdropPainter(
-                        colors: colors,
-                        baseColor: widget.baseColor,
-                        progress: _controller.value,
-                      ),
-                      child: const SizedBox.expand(),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-          widget.child,
-        ],
-      ),
+      color: baseColor,
+      child: child,
     );
   }
 }
@@ -162,184 +114,6 @@ class LiquidGlass extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _LiquidGlassBackdropPainter extends CustomPainter {
-  const _LiquidGlassBackdropPainter({
-    required this.colors,
-    required this.baseColor,
-    required this.progress,
-  });
-
-  final ColorScheme colors;
-  final Color baseColor;
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) {
-      return;
-    }
-
-    final rect = Offset.zero & size;
-    final phase = progress * math.pi * 2;
-    final isDark = colors.brightness == Brightness.dark;
-    canvas.drawRect(rect, Paint()..color = baseColor);
-
-    final wash = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: <Color>[
-          colors.primary.withValues(alpha: isDark ? 0.10 : 0.06),
-          colors.surface.withValues(alpha: 0),
-          colors.secondary.withValues(alpha: isDark ? 0.09 : 0.05),
-        ],
-        stops: const <double>[0, 0.48, 1],
-      ).createShader(rect);
-    canvas.drawRect(rect, wash);
-
-    _drawRibbon(
-      canvas,
-      rect,
-      phase: phase,
-      yFactor: 0.18,
-      thickness: 0.23,
-      color: colors.primary.withValues(alpha: isDark ? 0.16 : 0.09),
-      reverse: false,
-    );
-    _drawRibbon(
-      canvas,
-      rect,
-      phase: phase + math.pi * 0.78,
-      yFactor: 0.64,
-      thickness: 0.20,
-      color: colors.secondary.withValues(alpha: isDark ? 0.14 : 0.08),
-      reverse: true,
-    );
-    _drawCausticLine(
-      canvas,
-      rect,
-      phase: phase + 0.9,
-      yFactor: 0.36,
-      alpha: isDark ? 0.13 : 0.20,
-    );
-    _drawCausticLine(
-      canvas,
-      rect,
-      phase: phase + math.pi,
-      yFactor: 0.76,
-      alpha: isDark ? 0.10 : 0.15,
-    );
-  }
-
-  void _drawRibbon(
-    Canvas canvas,
-    Rect rect, {
-    required double phase,
-    required double yFactor,
-    required double thickness,
-    required Color color,
-    required bool reverse,
-  }) {
-    final width = rect.width;
-    final height = rect.height;
-    final drift = math.sin(phase) * height * 0.025;
-    final top = height * yFactor + drift;
-    final depth = height * thickness;
-    final direction = reverse ? -1.0 : 1.0;
-    final path = Path()
-      ..moveTo(-width * 0.12, top)
-      ..cubicTo(
-        width * 0.18,
-        top - depth * 0.55 * direction,
-        width * 0.42,
-        top + depth * 0.68 * direction,
-        width * 0.72,
-        top + depth * 0.06,
-      )
-      ..cubicTo(
-        width * 0.92,
-        top - depth * 0.45 * direction,
-        width * 1.05,
-        top + depth * 0.24 * direction,
-        width * 1.12,
-        top,
-      )
-      ..lineTo(width * 1.12, top + depth)
-      ..cubicTo(
-        width * 0.82,
-        top + depth * 1.12,
-        width * 0.52,
-        top + depth * 0.55,
-        width * 0.22,
-        top + depth * 0.98,
-      )
-      ..cubicTo(
-        width * 0.06,
-        top + depth * 1.22,
-        -width * 0.04,
-        top + depth * 0.72,
-        -width * 0.12,
-        top + depth,
-      )
-      ..close();
-
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: reverse ? Alignment.centerRight : Alignment.centerLeft,
-        end: reverse ? Alignment.centerLeft : Alignment.centerRight,
-        colors: <Color>[
-          color.withValues(alpha: 0),
-          color,
-          color.withValues(alpha: 0),
-        ],
-        stops: const <double>[0, 0.48, 1],
-      ).createShader(rect);
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawCausticLine(
-    Canvas canvas,
-    Rect rect, {
-    required double phase,
-    required double yFactor,
-    required double alpha,
-  }) {
-    final width = rect.width;
-    final y = rect.height * yFactor + math.sin(phase) * rect.height * 0.018;
-    final path = Path()
-      ..moveTo(width * 0.07, y)
-      ..cubicTo(
-        width * 0.24,
-        y - 34,
-        width * 0.38,
-        y + 26,
-        width * 0.55,
-        y - 4,
-      )
-      ..cubicTo(
-        width * 0.72,
-        y - 34,
-        width * 0.84,
-        y + 22,
-        width * 0.96,
-        y - 12,
-      );
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: alpha)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LiquidGlassBackdropPainter oldDelegate) {
-    return oldDelegate.colors != colors ||
-        oldDelegate.baseColor != baseColor ||
-        oldDelegate.progress != progress;
   }
 }
 
