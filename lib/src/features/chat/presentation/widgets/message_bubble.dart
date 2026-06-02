@@ -59,7 +59,6 @@ class MessageBubble extends StatelessWidget {
           child: LiquidGlass(
             borderRadius: bubbleRadius,
             tint: style.background,
-            accentColor: style.accent,
             borderColor: style.border,
             borderOpacity: style.borderOpacity,
             shadowAlpha: style.shadowAlpha,
@@ -257,7 +256,6 @@ class _BubbleStyle {
     required this.background,
     required this.foreground,
     required this.border,
-    required this.accent,
     required this.borderOpacity,
     required this.shadowAlpha,
     required this.intensity,
@@ -266,7 +264,6 @@ class _BubbleStyle {
   final Color background;
   final Color foreground;
   final Color border;
-  final Color accent;
   final double borderOpacity;
   final double shadowAlpha;
   final LiquidGlassIntensity intensity;
@@ -282,7 +279,6 @@ class _BubbleStyle {
         background: colors.errorContainer,
         foreground: colors.onErrorContainer,
         border: colors.error,
-        accent: colors.error,
         borderOpacity: 0.72,
         shadowAlpha: 0.04,
         intensity: LiquidGlassIntensity.subtle,
@@ -296,7 +292,6 @@ class _BubbleStyle {
           border: isUser
               ? colors.primary.withValues(alpha: 0.24)
               : colors.outlineVariant.withValues(alpha: 0.82),
-          accent: isUser ? colors.secondary : colors.primary,
           borderOpacity: isUser ? 0.36 : 0.64,
           shadowAlpha: isUser ? 0.14 : 0.07,
           intensity: isUser
@@ -310,7 +305,6 @@ class _BubbleStyle {
           border: isUser
               ? colors.secondary.withValues(alpha: 0.34)
               : colors.outlineVariant.withValues(alpha: 0.82),
-          accent: isUser ? colors.primary : colors.secondary,
           borderOpacity: isUser ? 0.48 : 0.58,
           shadowAlpha: 0.07,
           intensity: LiquidGlassIntensity.subtle,
@@ -319,7 +313,6 @@ class _BubbleStyle {
           background: colors.surfaceContainerLowest,
           foreground: colors.onSurface,
           border: isUser ? colors.primary : colors.outlineVariant,
-          accent: isUser ? colors.primary : colors.secondary,
           borderOpacity: isUser ? 0.36 : 0.50,
           shadowAlpha: isUser ? 0.05 : 0.04,
           intensity: LiquidGlassIntensity.subtle,

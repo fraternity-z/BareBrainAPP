@@ -613,7 +613,6 @@ class _Sidebar extends StatelessWidget {
           colors.primaryContainer.withValues(alpha: 0.16),
           colors.surfaceContainerLowest,
         ),
-        accentColor: colors.primary,
         borderColor: showBorder ? colors.outlineVariant : Colors.transparent,
         borderOpacity: showBorder ? 0.86 : 0,
         shadowAlpha: showBorder ? 0.08 : 0.12,
@@ -695,7 +694,6 @@ class _BareBrainMark extends StatelessWidget {
     return LiquidGlass(
       borderRadius: BorderRadius.circular(size / 2),
       tint: colors.primaryContainer,
-      accentColor: colors.primary,
       borderOpacity: 0.48,
       shadowAlpha: 0,
       intensity: LiquidGlassIntensity.subtle,
@@ -772,7 +770,6 @@ class _SidebarFooter extends StatelessWidget {
       child: LiquidGlass(
         borderRadius: BorderRadius.circular(24),
         tint: colors.surfaceContainerLowest,
-        accentColor: colors.primary,
         borderOpacity: 0.42,
         shadowAlpha: 0.08,
         intensity: LiquidGlassIntensity.subtle,
@@ -970,7 +967,6 @@ class _ConversationTile extends StatelessWidget {
             ? LiquidGlass(
                 borderRadius: borderRadius,
                 tint: colors.surfaceContainerLowest,
-                accentColor: colors.primary,
                 borderColor: colors.primary,
                 borderOpacity: 0.34,
                 shadowAlpha: 0.07,
@@ -1276,7 +1272,6 @@ class _HeaderConnectionPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         tint: colors.surfaceContainerLowest,
-        accentColor: colors.primary,
         borderOpacity: 0.56,
         shadowAlpha: 0,
         intensity: LiquidGlassIntensity.subtle,
@@ -1721,7 +1716,6 @@ class _Composer extends StatelessWidget {
           colors.primaryContainer.withValues(alpha: 0.08),
           colors.surfaceContainerLowest,
         ),
-        accentColor: colors.primary,
         borderOpacity: 0.42,
         shadowAlpha: 0.11,
         intensity: LiquidGlassIntensity.prominent,

@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../../app/app_config.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_ota_settings.dart';
@@ -230,10 +233,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     key: const Key('settings_row_about'),
                     icon: Icons.info_outline,
                     title: '关于',
-                    onTap: () => _openPlaceholderPage(
-                      title: '关于',
-                      icon: Icons.info_outline,
-                    ),
+                    onTap: _openAboutPage,
                   ),
                   SettingsRow(
                     key: const Key('settings_row_statistics'),
@@ -445,6 +445,16 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
+  void _openAboutPage() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => const _AboutPage(),
+        ),
+      ),
+    );
+  }
+
   void _openPlaceholderPage({
     required String title,
     required IconData icon,
@@ -484,6 +494,364 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   String _otaSummary(ChatOtaSettings settings) {
     return '${settings.channel} · ${settings.autoCheck ? '自动' : '手动'}';
   }
+}
+
+const String _aboutAppName = 'BareBrainAPP';
+const String _aboutAppSubtitle = 'BareBrain 局域网 AI 聊天客户端';
+const String _aboutAppDescription =
+    '面向 BareBrain 的本地聊天客户端，支持局域网连接、会话记录、语音服务、快捷短语、世界书和本地备份恢复。';
+const String _aboutAppVersion = '0.1.0 / 1';
+const String _aboutAppIconAsset = 'assets/branding/barebrain_app_icon_1024.png';
+
+class _AboutPage extends StatelessWidget {
+  const _AboutPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultGateway = Uri(
+      scheme: 'ws',
+      host: AppConfig.defaultHost,
+      port: AppConfig.defaultPort,
+      path: '/',
+    ).toString();
+
+    return SettingsScreenFrame(
+      title: '关于',
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        children: <Widget>[
+          const _AboutAppCard(),
+          const SizedBox(height: 20),
+          _AboutInfoCard(
+            children: <Widget>[
+              const _AboutInfoRow(
+                key: Key('about_row_version'),
+                icon: Icons.code,
+                title: '版本',
+                value: _aboutAppVersion,
+                copyValue: '$_aboutAppName $_aboutAppVersion',
+              ),
+              _AboutInfoRow(
+                key: const Key('about_row_system'),
+                icon: Icons.devices_outlined,
+                title: '系统',
+                value: _platformLabel,
+              ),
+              _AboutInfoRow(
+                key: const Key('about_row_gateway'),
+                icon: Icons.router_outlined,
+                title: '默认网关',
+                value: defaultGateway,
+                copyValue: defaultGateway,
+              ),
+              const _AboutInfoRow(
+                key: Key('about_row_client_id'),
+                icon: Icons.badge_outlined,
+                title: '客户端 ID',
+                value: AppConfig.defaultClientId,
+                copyValue: AppConfig.defaultClientId,
+              ),
+              const _AboutInfoRow(
+                key: Key('about_row_docs'),
+                icon: Icons.article_outlined,
+                title: '项目说明',
+                value: 'README',
+                copyValue: _aboutAppDescription,
+              ),
+              const _AboutInfoRow(
+                key: Key('about_row_license'),
+                icon: Icons.description_outlined,
+                title: '许可证',
+                value: '暂未声明',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AboutAppCard extends StatelessWidget {
+  const _AboutAppCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final paletteTextStrong = settingsPrimaryTextColor(context);
+    final paletteTextSoft = settingsSecondaryTextColor(context);
+
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+        child: Row(
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                _aboutAppIconAsset,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const _AboutIconFallback(size: 64);
+                },
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    _aboutAppName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: paletteTextStrong,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _aboutAppSubtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: paletteTextSoft,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutInfoCard extends StatelessWidget {
+  const _AboutInfoCard({
+    required this.children,
+  });
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(settingsCardRadius),
+        child: Column(children: _withDividers(context)),
+      ),
+    );
+  }
+
+  List<Widget> _withDividers(BuildContext context) {
+    final widgets = <Widget>[];
+    for (var index = 0; index < children.length; index++) {
+      widgets.add(children[index]);
+      if (index < children.length - 1) {
+        widgets.add(
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: settingsDividerColorFor(context),
+            indent: 76,
+            endIndent: 18,
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+}
+
+class _AboutInfoRow extends StatelessWidget {
+  const _AboutInfoRow({
+    required this.icon,
+    required this.title,
+    this.value,
+    this.copyValue,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? value;
+  final String? copyValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final canCopy = copyValue != null;
+    final paletteTextStrong = settingsPrimaryTextColor(context);
+    final paletteTextSoft = settingsSecondaryTextColor(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: canCopy
+            ? () => unawaited(
+                  _copyAboutText(context, label: title, value: copyValue!),
+                )
+            : null,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 76),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final valueMaxWidth = constraints.maxWidth * 0.42;
+                return Row(
+                  children: <Widget>[
+                    _AboutIconBox(icon: icon),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: paletteTextStrong,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                      ),
+                    ),
+                    if (value != null) ...<Widget>[
+                      const SizedBox(width: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: valueMaxWidth),
+                        child: Text(
+                          value!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: paletteTextSoft,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
+                                  ),
+                        ),
+                      ),
+                    ],
+                    if (canCopy) ...<Widget>[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 24,
+                        color: paletteTextSoft,
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutIconBox extends StatelessWidget {
+  const _AboutIconBox({
+    required this.icon,
+  });
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 42,
+      child: Icon(
+        icon,
+        size: 26,
+        color: settingsPrimaryTextColor(context),
+      ),
+    );
+  }
+}
+
+class _AboutIconFallback extends StatelessWidget {
+  const _AboutIconFallback({
+    required this.size,
+  });
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.primaryContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: SizedBox.square(
+        dimension: size,
+        child: Icon(
+          Icons.psychology_outlined,
+          size: size * 0.52,
+          color: colors.onPrimaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _copyAboutText(
+  BuildContext context, {
+  required String label,
+  required String value,
+}) async {
+  try {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已复制$label')),
+    );
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('复制失败：$error')),
+    );
+  }
+}
+
+String get _platformLabel {
+  if (kIsWeb) {
+    return 'Web';
+  }
+
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android => 'Android',
+    TargetPlatform.fuchsia => 'Fuchsia',
+    TargetPlatform.iOS => 'iOS',
+    TargetPlatform.linux => 'Linux',
+    TargetPlatform.macOS => 'macOS',
+    TargetPlatform.windows => 'Windows',
+  };
 }
 
 class _SettingsPlaceholderPage extends StatelessWidget {
