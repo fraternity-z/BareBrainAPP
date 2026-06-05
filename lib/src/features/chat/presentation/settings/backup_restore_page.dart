@@ -545,7 +545,7 @@ class _UnavailableBackupPage extends StatelessWidget {
           SettingsEmptyState(
             icon: Icons.cloud_off_outlined,
             title: title,
-            subtitle: '内容暂未配置',
+            subtitle: '当前版本仅支持本地 JSON 导出和粘贴恢复，云端同步需要接入对应服务后再启用。',
           ),
         ],
       ),

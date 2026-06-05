@@ -124,6 +124,7 @@ class _ChatPageState extends State<ChatPage> {
                               Builder(
                                 builder: (scaffoldContext) {
                                   return _Header(
+                                    title: widget.controller.conversationTitle,
                                     settings: widget.controller.settings,
                                     sidebarExpanded:
                                         wide ? desktopSidebarExpanded : null,
@@ -170,6 +171,9 @@ class _ChatPageState extends State<ChatPage> {
                                 onSend: _send,
                                 onShortcutCommandsPressed:
                                     _openShortcutCommandList,
+                                onNewConversationPressed: () {
+                                  unawaited(_createConversation());
+                                },
                                 onQuickPhrasesPressed:
                                     widget.appSettingsController == null
                                         ? null
@@ -239,6 +243,11 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  Future<void> _createConversation() async {
+    _syncRuntimeSettings();
+    await widget.controller.createConversation();
+  }
+
   Future<bool> _confirmRegenerate() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -280,8 +289,14 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted || !_scrollController.hasClients) {
       return;
     }
+    final position = _scrollController.position;
+    final target = position.maxScrollExtent;
+    if ((position.pixels - target).abs() < 2) {
+      return;
+    }
+
     await _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
+      target,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
     );
@@ -382,11 +397,19 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openShortcutCommandList() async {
-    await showModalBottomSheet<void>(
+    final command = await showModalBottomSheet<_ShortcutCommand>(
       context: context,
       showDragHandle: true,
-      builder: (context) => const _ShortcutCommandListSheet(),
+      builder: (context) {
+        return const _ShortcutCommandListSheet(commands: _shortcutCommands);
+      },
     );
+
+    if (command == null || !mounted) {
+      return;
+    }
+
+    _insertComposerText(command.content);
   }
 
   void _insertComposerText(String content) {
@@ -1265,6 +1288,7 @@ Future<void> _showRenameDialog(
 
 class _Header extends StatelessWidget {
   const _Header({
+    required this.title,
     required this.settings,
     required this.onClearPressed,
     this.sidebarExpanded,
@@ -1272,6 +1296,7 @@ class _Header extends StatelessWidget {
     this.onMenuPressed,
   });
 
+  final String title;
   final ChatConnectionSettings settings;
   final VoidCallback onClearPressed;
   final bool? sidebarExpanded;
@@ -1309,7 +1334,7 @@ class _Header extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    '新对话',
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -1399,32 +1424,32 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.messages.isEmpty) {
+    final messages = controller.messages;
+    if (messages.isEmpty) {
       return const _EmptyMessageView();
     }
+    final canRetryLastMessage = controller.canRetryLastMessage;
 
     final list = ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
-      itemCount: controller.messages.length,
+      itemCount: messages.length,
       separatorBuilder: (_, __) => SizedBox(
         height: displaySettings.compactMessageSpacing ? 8 : 14,
       ),
       itemBuilder: (context, index) {
         return MessageBubble(
-          message: controller.messages[index],
+          message: messages[index],
           displaySettings: displaySettings,
-          onCopy: () => onCopyMessage(controller.messages[index].content),
-          onRetry: controller.canRetryLastMessage &&
-                  index == controller.messages.length - 2
+          onCopy: () => onCopyMessage(messages[index].content),
+          onRetry: canRetryLastMessage && index == messages.length - 2
               ? onRetryMessage
               : null,
         );
       },
     );
 
-    if (!displaySettings.showMessageNavigationButtons ||
-        controller.messages.length < 2) {
+    if (!displaySettings.showMessageNavigationButtons || messages.length < 2) {
       return list;
     }
 
@@ -1841,6 +1866,47 @@ class _SendMessageIntent extends Intent {
   const _SendMessageIntent();
 }
 
+class _ShortcutCommand {
+  const _ShortcutCommand({
+    required this.title,
+    required this.description,
+    required this.content,
+    required this.icon,
+  });
+
+  final String title;
+  final String description;
+  final String content;
+  final IconData icon;
+}
+
+const List<_ShortcutCommand> _shortcutCommands = <_ShortcutCommand>[
+  _ShortcutCommand(
+    title: '总结上文',
+    description: '提炼当前对话的结论、行动项和风险。',
+    content: '请总结上文，按“结论 / 行动项 / 风险”输出。',
+    icon: Icons.summarize_outlined,
+  ),
+  _ShortcutCommand(
+    title: '继续展开',
+    description: '基于上一条回复继续补充细节。',
+    content: '请继续展开上一条回复，补充关键细节和可执行步骤。',
+    icon: Icons.expand_more,
+  ),
+  _ShortcutCommand(
+    title: '给出方案',
+    description: '要求助手比较取舍并给出推荐方案。',
+    content: '请给出 2-3 个可行方案，说明取舍，并推荐一个最稳妥的方案。',
+    icon: Icons.account_tree_outlined,
+  ),
+  _ShortcutCommand(
+    title: '检查问题',
+    description: '让助手从正确性、性能和风险角度审查内容。',
+    content: '请从正确性、性能、可维护性和潜在风险角度检查上面的内容。',
+    icon: Icons.fact_check_outlined,
+  ),
+];
+
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -1849,6 +1915,7 @@ class _Composer extends StatelessWidget {
     required this.onChanged,
     required this.onSend,
     required this.onShortcutCommandsPressed,
+    required this.onNewConversationPressed,
     this.onQuickPhrasesPressed,
   });
 
@@ -1858,6 +1925,7 @@ class _Composer extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
   final VoidCallback onShortcutCommandsPressed;
+  final VoidCallback onNewConversationPressed;
   final VoidCallback? onQuickPhrasesPressed;
 
   @override
@@ -1947,11 +2015,21 @@ class _Composer extends StatelessWidget {
                   onPressed: onQuickPhrasesPressed,
                 ),
                 const Spacer(),
-                const _ComposerToolIcon(icon: Icons.add),
+                _ComposerToolIcon(
+                  tooltip: '新建会话',
+                  icon: Icons.add_comment_outlined,
+                  onPressed: onNewConversationPressed,
+                ),
                 const SizedBox(width: 10),
-                _ComposerSendButton(
-                  isSending: controller.isSending,
-                  onPressed: onSend,
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: textController,
+                  builder: (context, value, _) {
+                    return _ComposerSendButton(
+                      isSending: controller.isSending,
+                      canSend: value.text.trim().isNotEmpty,
+                      onPressed: onSend,
+                    );
+                  },
                 ),
               ],
             ),
@@ -1973,17 +2051,20 @@ class _Composer extends StatelessWidget {
 class _ComposerSendButton extends StatelessWidget {
   const _ComposerSendButton({
     required this.isSending,
+    required this.canSend,
     required this.onPressed,
   });
 
   final bool isSending;
+  final bool canSend;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final enabled = !isSending && canSend;
     final disabledColor = colors.surfaceContainerHigh;
-    final foreground = isSending ? colors.onSurfaceVariant : colors.onPrimary;
+    final foreground = enabled ? colors.onPrimary : colors.onSurfaceVariant;
 
     return Tooltip(
       message: '发送',
@@ -1991,10 +2072,9 @@ class _ComposerSendButton extends StatelessWidget {
         dimension: 46,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: isSending ? disabledColor : null,
-            gradient: isSending
-                ? null
-                : LinearGradient(
+            color: enabled ? null : disabledColor,
+            gradient: enabled
+                ? LinearGradient(
                     colors: <Color>[
                       colors.primary,
                       Color.alphaBlend(
@@ -2004,24 +2084,25 @@ class _ComposerSendButton extends StatelessWidget {
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                  ),
+                  )
+                : null,
             shape: BoxShape.circle,
-            boxShadow: isSending
-                ? null
-                : <BoxShadow>[
+            boxShadow: enabled
+                ? <BoxShadow>[
                     BoxShadow(
                       color: colors.primary.withValues(alpha: 0.28),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
-                  ],
+                  ]
+                : null,
           ),
           child: Material(
             color: Colors.transparent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: isSending ? null : onPressed,
+              onTap: enabled ? onPressed : null,
               child: Center(
                 child: isSending
                     ? SizedBox(
@@ -2094,7 +2175,11 @@ class _ComposerToolIcon extends StatelessWidget {
 }
 
 class _ShortcutCommandListSheet extends StatelessWidget {
-  const _ShortcutCommandListSheet();
+  const _ShortcutCommandListSheet({
+    required this.commands,
+  });
+
+  final List<_ShortcutCommand> commands;
 
   @override
   Widget build(BuildContext context) {
@@ -2112,39 +2197,28 @@ class _ShortcutCommandListSheet extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 8),
-            const _ShortcutCommandEmptyState(),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: commands.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final command = commands[index];
+                  return ListTile(
+                    leading: Icon(command.icon),
+                    title: Text(command.title),
+                    subtitle: Text(
+                      command.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.of(context).pop(command),
+                  );
+                },
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ShortcutCommandEmptyState extends StatelessWidget {
-  const _ShortcutCommandEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            Icons.auto_awesome,
-            color: colors.onSurfaceVariant,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '暂无快捷命令',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }

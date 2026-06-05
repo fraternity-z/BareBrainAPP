@@ -66,7 +66,12 @@ class ChatController extends ChangeNotifier {
   String _draft = '';
   bool _isSending = false;
   bool _isDisposed = false;
+  Timer? _draftSaveTimer;
+  Future<void>? _snapshotSaveFuture;
+  bool _saveSnapshotAgain = false;
   String? _errorMessage;
+
+  static const Duration _draftSaveDebounce = Duration(milliseconds: 450);
 
   ChatConnectionSettings get settings => _settings;
   List<ChatMessage> get messages => List.unmodifiable(_messages);
@@ -74,6 +79,7 @@ class ChatController extends ChangeNotifier {
   bool get isSending => _isSending;
   String? get errorMessage => _errorMessage;
   String get conversationId => _conversationId;
+  String get conversationTitle => _conversationTitle;
   bool get canRetryLastMessage {
     return !_isSending && _lastRetryableUserMessageIndex() != null;
   }
@@ -95,7 +101,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<ChatStorageUsage> loadStorageUsage() async {
-    await _saveSnapshot();
+    await _saveSnapshotImmediately();
     await _saveCatalogSummary();
 
     final storedCatalog = await _catalogStore?.load();
@@ -219,7 +225,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> createConversation({String? title}) async {
-    await _saveSnapshot();
+    await _saveSnapshotImmediately();
     await _saveCatalogSummary();
 
     final id = _newId('conversation');
@@ -242,7 +248,7 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
-    await _saveSnapshot();
+    await _saveSnapshotImmediately();
     await _saveCatalogSummary();
 
     final summary = _findConversation(conversationId);
@@ -370,7 +376,7 @@ class ChatController extends ChangeNotifier {
     }
 
     _draft = draft;
-    unawaited(_saveSnapshot());
+    _scheduleDraftSnapshotSave();
   }
 
   Future<void> retryLastUserMessage({
@@ -413,6 +419,7 @@ class ChatController extends ChangeNotifier {
     final shouldAutoTitle = existingUserMessageIndex == null &&
         _messages.isEmpty &&
         _hasGeneratedConversationTitle();
+    _cancelDraftSnapshotSave();
     _isSending = true;
     _errorMessage = null;
     _draft = '';
@@ -498,6 +505,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void clear() {
+    _cancelDraftSnapshotSave();
     _messages.clear();
     _errorMessage = null;
     unawaited(_saveSnapshot());
@@ -509,7 +517,30 @@ class ChatController extends ChangeNotifier {
     return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
   }
 
-  Future<void> _saveSnapshot() async {
+  Future<void> _saveSnapshot() {
+    final activeSave = _snapshotSaveFuture;
+    if (activeSave != null) {
+      _saveSnapshotAgain = true;
+      return activeSave;
+    }
+
+    final saveFuture = _runSnapshotSave();
+    _snapshotSaveFuture = saveFuture;
+    return saveFuture;
+  }
+
+  Future<void> _runSnapshotSave() async {
+    try {
+      do {
+        _saveSnapshotAgain = false;
+        await _writeSnapshot();
+      } while (_saveSnapshotAgain);
+    } finally {
+      _snapshotSaveFuture = null;
+    }
+  }
+
+  Future<void> _writeSnapshot() async {
     if (!_storageSettings.autoSaveConversations) {
       return;
     }
@@ -530,6 +561,28 @@ class ChatController extends ChangeNotifier {
     } catch (error) {
       _errorMessage = '保存会话失败：$error';
     }
+  }
+
+  Future<void> _saveSnapshotImmediately() {
+    _cancelDraftSnapshotSave();
+    return _saveSnapshot();
+  }
+
+  void _scheduleDraftSnapshotSave() {
+    if (!_storageSettings.autoSaveConversations) {
+      return;
+    }
+
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(_draftSaveDebounce, () {
+      _draftSaveTimer = null;
+      unawaited(_saveSnapshot());
+    });
+  }
+
+  void _cancelDraftSnapshotSave() {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
   }
 
   Future<void> _saveCatalogSummary() async {
@@ -788,6 +841,7 @@ class ChatController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _cancelDraftSnapshotSave();
     super.dispose();
   }
 }

@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/app_config.dart';
+import '../../domain/entities/chat_app_settings.dart';
 import '../../domain/entities/chat_connection_settings.dart';
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_ota_settings.dart';
 import '../controllers/chat_app_settings_controller.dart';
+import '../controllers/chat_controller.dart';
 import '../controllers/chat_display_settings_controller.dart';
 import '../widgets/settings_sheet.dart';
 import 'backup_restore_page.dart';
@@ -20,7 +22,6 @@ import 'prompt_injection_page.dart';
 import 'quick_phrases_page.dart';
 import 'settings_components.dart';
 import 'voice_service_page.dart';
-import 'world_book_page.dart';
 
 typedef TestOtaVersionCheck = Future<void> Function(
   ChatConnectionSettings settings,
@@ -160,13 +161,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     onTap: _openVoiceService,
                   ),
                   SettingsRow(
-                    key: const Key('settings_row_world_book'),
-                    icon: Icons.menu_book_outlined,
-                    title: '世界书',
-                    value: appSettings.worldBook.summary,
-                    onTap: _openWorldBook,
-                  ),
-                  SettingsRow(
                     key: const Key('settings_row_quick_phrases'),
                     icon: Icons.flash_on_outlined,
                     title: '快捷短语',
@@ -239,28 +233,19 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     key: const Key('settings_row_statistics'),
                     icon: Icons.bar_chart_outlined,
                     title: '统计',
-                    onTap: () => _openPlaceholderPage(
-                      title: '统计',
-                      icon: Icons.bar_chart_outlined,
-                    ),
+                    onTap: _openStatisticsPage,
                   ),
                   SettingsRow(
                     key: const Key('settings_row_docs'),
                     icon: Icons.article_outlined,
                     title: '使用文档',
-                    onTap: () => _openPlaceholderPage(
-                      title: '使用文档',
-                      icon: Icons.article_outlined,
-                    ),
+                    onTap: _openDocsPage,
                   ),
                   SettingsRow(
                     key: const Key('settings_row_sponsor'),
                     icon: Icons.favorite_border,
                     title: '赞助',
-                    onTap: () => _openPlaceholderPage(
-                      title: '赞助',
-                      icon: Icons.favorite_border,
-                    ),
+                    onTap: _openSponsorPage,
                   ),
                 ],
               ),
@@ -388,19 +373,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
-  void _openWorldBook() {
-    unawaited(
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (context) => WorldBookPage(
-            settings: _appSettingsController.settings.worldBook,
-            onChanged: _appSettingsController.updateWorldBook,
-          ),
-        ),
-      ),
-    );
-  }
-
   void _openPromptInjection() {
     unawaited(
       Navigator.of(context).push<void>(
@@ -455,17 +427,36 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
-  void _openPlaceholderPage({
-    required String title,
-    required IconData icon,
-  }) {
+  void _openStatisticsPage() {
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (context) => _SettingsPlaceholderPage(
-            title: title,
-            icon: icon,
+          builder: (context) => _StatisticsPage(
+            appSettings: _appSettingsController.settings,
+            connectionSettings: _settings,
+            displaySettings: _currentDisplaySettings,
+            loadStorageUsage: widget.loadStorageUsage,
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openDocsPage() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => const _DocumentationPage(),
+        ),
+      ),
+    );
+  }
+
+  void _openSponsorPage() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => const _SponsorPage(),
         ),
       ),
     );
@@ -499,7 +490,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 const String _aboutAppName = 'BareBrainAPP';
 const String _aboutAppSubtitle = 'BareBrain 局域网 AI 聊天客户端';
 const String _aboutAppDescription =
-    '面向 BareBrain 的本地聊天客户端，支持局域网连接、会话记录、语音服务、快捷短语、世界书和本地备份恢复。';
+    '面向 BareBrain 的本地聊天客户端，支持局域网连接、会话记录、语音服务、快捷短语和本地备份恢复。';
 const String _aboutAppVersion = '0.1.0 / 1';
 const String _aboutAppIconAsset = 'assets/branding/barebrain_app_icon_1024.png';
 
@@ -854,34 +845,376 @@ String get _platformLabel {
   };
 }
 
-class _SettingsPlaceholderPage extends StatelessWidget {
-  const _SettingsPlaceholderPage({
-    required this.title,
-    required this.icon,
+class _StatisticsPage extends StatefulWidget {
+  const _StatisticsPage({
+    required this.appSettings,
+    required this.connectionSettings,
+    required this.displaySettings,
+    this.loadStorageUsage,
   });
 
-  final String title;
-  final IconData icon;
+  final ChatAppSettings appSettings;
+  final ChatConnectionSettings connectionSettings;
+  final ChatDisplaySettings displaySettings;
+  final LoadChatStorageUsage? loadStorageUsage;
+
+  @override
+  State<_StatisticsPage> createState() => _StatisticsPageState();
+}
+
+class _StatisticsPageState extends State<_StatisticsPage> {
+  ChatStorageUsage? _usage;
+  String? _errorMessage;
+  bool _isLoading = false;
+  int _requestId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshUsage());
+  }
 
   @override
   Widget build(BuildContext context) {
+    final usage = _usage ?? const ChatStorageUsage.empty();
+    final appSettings = widget.appSettings;
+    final displaySettings = widget.displaySettings;
+    final connectionSettings = widget.connectionSettings;
+
     return SettingsScreenFrame(
-      title: title,
+      title: '统计',
+      actions: <Widget>[
+        IconButton(
+          tooltip: '刷新',
+          onPressed: _isLoading ? null : () => unawaited(_refreshUsage()),
+          icon: _isLoading
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                )
+              : const Icon(Icons.refresh, size: 30),
+        ),
+      ],
       child: ListView(
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: <Widget>[
-          SettingsEmptyState(
-            icon: icon,
-            title: title,
-            subtitle: '内容暂未配置',
+          if (_errorMessage != null) ...<Widget>[
+            SettingsFeedbackBanner(message: _errorMessage!),
+            const SizedBox(height: 18),
+          ],
+          _AboutInfoCard(
+            children: <Widget>[
+              _AboutInfoRow(
+                icon: Icons.forum_outlined,
+                title: '会话',
+                value: '${usage.conversationCount} 个',
+              ),
+              _AboutInfoRow(
+                icon: Icons.chat_bubble_outline,
+                title: '消息',
+                value: '${usage.messageCount} 条',
+              ),
+              _AboutInfoRow(
+                icon: Icons.edit_note_outlined,
+                title: '草稿',
+                value: '${usage.draftCount} 个',
+              ),
+              _AboutInfoRow(
+                icon: Icons.storage_outlined,
+                title: '本地占用',
+                value: _formatStorageBytes(usage.totalBytes),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _AboutInfoCard(
+            children: <Widget>[
+              _AboutInfoRow(
+                icon: Icons.flash_on_outlined,
+                title: '快捷短语',
+                value: '${appSettings.quickPhrases.length} 条',
+              ),
+              _AboutInfoRow(
+                icon: Icons.layers_outlined,
+                title: '指令注入',
+                value: appSettings.promptInjection.summary,
+              ),
+              _AboutInfoRow(
+                icon: Icons.volume_up_outlined,
+                title: '语音服务',
+                value: appSettings.voice.summary,
+              ),
+              _AboutInfoRow(
+                icon: Icons.public_outlined,
+                title: '网络代理',
+                value: appSettings.networkProxy.summary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _AboutInfoCard(
+            children: <Widget>[
+              _AboutInfoRow(
+                icon: Icons.router_outlined,
+                title: '网关',
+                value: connectionSettings.websocketUri.toString(),
+                copyValue: connectionSettings.websocketUri.toString(),
+              ),
+              _AboutInfoRow(
+                icon: Icons.timer_outlined,
+                title: '响应超时',
+                value: _formatDuration(connectionSettings.responseTimeout),
+              ),
+              _AboutInfoRow(
+                icon: Icons.palette_outlined,
+                title: '主题',
+                value:
+                    '${displaySettings.colorMode.label} · ${displaySettings.themePreset.label}',
+              ),
+              _AboutInfoRow(
+                icon: Icons.text_fields,
+                title: '消息字号',
+                value: displaySettings.messageFontScaleLabel,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  Future<void> _refreshUsage() async {
+    final loadStorageUsage = widget.loadStorageUsage;
+    if (loadStorageUsage == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _usage = const ChatStorageUsage.empty();
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final requestId = ++_requestId;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final usage = await loadStorageUsage();
+      if (!mounted || requestId != _requestId) {
+        return;
+      }
+      setState(() {
+        _usage = usage;
+        _errorMessage = null;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _requestId) {
+        return;
+      }
+      setState(() {
+        _errorMessage = '读取统计失败：$error';
+        _isLoading = false;
+      });
+    }
+  }
+}
+
+class _DocumentationPage extends StatelessWidget {
+  const _DocumentationPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultGateway = Uri(
+      scheme: 'ws',
+      host: AppConfig.defaultHost,
+      port: AppConfig.defaultPort,
+      path: '/',
+    ).toString();
+
+    return SettingsScreenFrame(
+      title: '使用文档',
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        children: <Widget>[
+          _SettingsTextCard(
+            icon: Icons.router_outlined,
+            title: '连接 BareBrain',
+            paragraphs: <String>[
+              '默认网关为 $defaultGateway，可在“连接参数”里修改设备 IP、端口、客户端 ID 和响应超时。',
+              '设置页里的连接测试只验证 WebSocket 握手，不会向 BareBrain 发送聊天内容。',
+            ],
+          ),
+          const SizedBox(height: 18),
+          const _SettingsTextCard(
+            icon: Icons.chat_bubble_outline,
+            title: '聊天与会话',
+            paragraphs: <String>[
+              '宽屏使用左侧会话栏，窄屏使用抽屉。会话支持新建、切换、重命名和删除非当前会话。',
+              '发送失败后可以重试最后一条用户消息；开启确认后，重新生成前会先弹出确认框。',
+              '输入栏的快捷命令会插入内置模板，快捷短语会插入你在设置页维护的自定义内容。',
+            ],
+          ),
+          const SizedBox(height: 18),
+          const _SettingsTextCard(
+            icon: Icons.tune_outlined,
+            title: '增强与服务',
+            paragraphs: <String>[
+              '指令注入会在发送时拼接到传输内容，本地聊天记录仍保留原始输入。',
+              '语音服务启用后，会在收到助手回复时把回复文本 POST 到配置的 HTTP 服务。',
+              '网络代理会应用到聊天 WebSocket、语音服务和 OTA 检查请求。',
+            ],
+          ),
+          const SizedBox(height: 18),
+          const _SettingsTextCard(
+            icon: Icons.backup_outlined,
+            title: '数据与迁移',
+            paragraphs: <String>[
+              '本地会话、草稿、显示设置和应用设置会通过 Key-Value JSON 持久化。',
+              '备份与恢复支持导出和粘贴恢复 JSON，适合在设备间迁移本地配置。',
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SponsorPage extends StatelessWidget {
+  const _SponsorPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsScreenFrame(
+      title: '赞助',
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        children: const <Widget>[
+          _SettingsTextCard(
+            icon: Icons.favorite_border,
+            title: '支持 BareBrainAPP',
+            paragraphs: <String>[
+              '当前版本未内置收款入口。你可以通过反馈连接问题、提供不同局域网环境的测试结果、整理 BareBrain 固件兼容信息来支持项目。',
+              '如果这是团队内部版本，可以在后续发布中把组织自己的赞助渠道或反馈入口接入到这里。',
+            ],
+          ),
+          SizedBox(height: 18),
+          _SettingsTextCard(
+            icon: Icons.handyman_outlined,
+            title: '优先需要的帮助',
+            paragraphs: <String>[
+              '补充更多 BareBrain 设备型号、网络代理和 OTA 检查场景下的实际测试反馈。',
+              '整理高频提示词、快捷短语和指令注入模板，降低首次配置成本。',
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTextCard extends StatelessWidget {
+  const _SettingsTextCard({
+    required this.icon,
+    required this.title,
+    required this.paragraphs,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> paragraphs;
+
+  @override
+  Widget build(BuildContext context) {
+    final strong = settingsPrimaryTextColor(context);
+    final soft = settingsSecondaryTextColor(context);
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                _AboutIconBox(icon: icon),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: strong,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            for (var index = 0; index < paragraphs.length; index++) ...<Widget>[
+              if (index > 0) const SizedBox(height: 10),
+              Text(
+                paragraphs[index],
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: soft,
+                      fontSize: 15,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatStorageBytes(int bytes) {
+  if (bytes < 1024) {
+    return '$bytes B';
+  }
+
+  final kb = bytes / 1024;
+  if (kb < 1024) {
+    return '${kb.toStringAsFixed(kb < 10 ? 1 : 0)} KB';
+  }
+
+  final mb = kb / 1024;
+  return '${mb.toStringAsFixed(mb < 10 ? 1 : 0)} MB';
+}
+
+String _formatDuration(Duration duration) {
+  if (duration.inSeconds < 60) {
+    return '${duration.inSeconds}s';
+  }
+
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60);
+  if (seconds == 0) {
+    return '${minutes}m';
+  }
+
+  return '${minutes}m ${seconds}s';
 }
 
 class _ColorModePickerSheet extends StatelessWidget {
