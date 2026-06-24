@@ -111,9 +111,6 @@ class _BareBrainAppState extends State<BareBrainApp> {
       ]);
       _syncAppSettings(persistStorage: false);
       await _controller.restore();
-      if (_displaySettingsController.settings.startNewConversationOnLaunch) {
-        await _controller.createConversation();
-      }
     } finally {
       _isRestoringControllers = false;
     }

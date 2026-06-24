@@ -44,7 +44,6 @@ class ChatDisplaySettingsCodec {
       'showConversationListDates': settings.showConversationListDates,
       'keepDrawerOpenOnConversationSelect':
           settings.keepDrawerOpenOnConversationSelect,
-      'startNewConversationOnLaunch': settings.startNewConversationOnLaunch,
       'sendMessageWithEnterKey': settings.sendMessageWithEnterKey,
       'hapticFeedback': settings.hapticFeedback,
       'messageBackground': settings.messageBackground.name,
@@ -144,10 +143,6 @@ class ChatDisplaySettingsCodec {
       keepDrawerOpenOnConversationSelect: _boolValue(
         value['keepDrawerOpenOnConversationSelect'],
         defaults.keepDrawerOpenOnConversationSelect,
-      ),
-      startNewConversationOnLaunch: _boolValue(
-        value['startNewConversationOnLaunch'],
-        defaults.startNewConversationOnLaunch,
       ),
       sendMessageWithEnterKey: _boolValue(
         value['sendMessageWithEnterKey'],

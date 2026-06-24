@@ -73,7 +73,6 @@ class ChatDisplaySettings {
     this.showMessageNavigationButtons = true,
     this.showConversationListDates = false,
     this.keepDrawerOpenOnConversationSelect = false,
-    this.startNewConversationOnLaunch = true,
     this.sendMessageWithEnterKey = true,
     this.hapticFeedback = true,
     this.messageBackground = ChatMessageBackground.standard,
@@ -106,7 +105,6 @@ class ChatDisplaySettings {
   final bool showMessageNavigationButtons;
   final bool showConversationListDates;
   final bool keepDrawerOpenOnConversationSelect;
-  final bool startNewConversationOnLaunch;
   final bool sendMessageWithEnterKey;
   final bool hapticFeedback;
   final ChatMessageBackground messageBackground;
@@ -138,7 +136,6 @@ class ChatDisplaySettings {
     bool? showMessageNavigationButtons,
     bool? showConversationListDates,
     bool? keepDrawerOpenOnConversationSelect,
-    bool? startNewConversationOnLaunch,
     bool? sendMessageWithEnterKey,
     bool? hapticFeedback,
     ChatMessageBackground? messageBackground,
@@ -184,8 +181,6 @@ class ChatDisplaySettings {
           showConversationListDates ?? this.showConversationListDates,
       keepDrawerOpenOnConversationSelect: keepDrawerOpenOnConversationSelect ??
           this.keepDrawerOpenOnConversationSelect,
-      startNewConversationOnLaunch:
-          startNewConversationOnLaunch ?? this.startNewConversationOnLaunch,
       sendMessageWithEnterKey:
           sendMessageWithEnterKey ?? this.sendMessageWithEnterKey,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
@@ -268,8 +263,6 @@ class ChatDisplaySettings {
             other.showConversationListDates == showConversationListDates &&
             other.keepDrawerOpenOnConversationSelect ==
                 keepDrawerOpenOnConversationSelect &&
-            other.startNewConversationOnLaunch ==
-                startNewConversationOnLaunch &&
             other.sendMessageWithEnterKey == sendMessageWithEnterKey &&
             other.hapticFeedback == hapticFeedback &&
             other.messageBackground == messageBackground &&
@@ -304,7 +297,6 @@ class ChatDisplaySettings {
       showMessageNavigationButtons,
       showConversationListDates,
       keepDrawerOpenOnConversationSelect,
-      startNewConversationOnLaunch,
       sendMessageWithEnterKey,
       hapticFeedback,
       messageBackground,

@@ -385,7 +385,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       _settings.showMessageNavigationButtons,
       _settings.showConversationListDates,
       _settings.keepDrawerOpenOnConversationSelect,
-      _settings.startNewConversationOnLaunch,
       _settings.sendMessageWithEnterKey,
     ].where((enabled) => enabled).length;
 
@@ -853,18 +852,6 @@ class _BehaviorDisplaySettingsPageState
                 },
               ),
               _RenderingSwitchRow(
-                key: const Key('behavior_start_new_conversation_row'),
-                switchKey: const Key('behavior_start_new_conversation_switch'),
-                icon: const Icon(Icons.add_comment_outlined, size: 25),
-                title: '启动时新建对话',
-                value: _settings.startNewConversationOnLaunch,
-                onChanged: (value) {
-                  _update(
-                    _settings.copyWith(startNewConversationOnLaunch: value),
-                  );
-                },
-              ),
-              _RenderingSwitchRow(
                 key: const Key('behavior_enter_to_send_row'),
                 switchKey: const Key('behavior_enter_to_send_switch'),
                 icon: const Icon(Icons.keyboard_return, size: 25),
@@ -898,7 +885,6 @@ class _BehaviorDisplaySettingsPageState
         showConversationListDates: defaults.showConversationListDates,
         keepDrawerOpenOnConversationSelect:
             defaults.keepDrawerOpenOnConversationSelect,
-        startNewConversationOnLaunch: defaults.startNewConversationOnLaunch,
         sendMessageWithEnterKey: defaults.sendMessageWithEnterKey,
       ),
     );
