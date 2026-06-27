@@ -1,0 +1,7 @@
+name: bare_brain_relay
+description: Self-hosted WebSocket relay for BareBrainAPP.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"

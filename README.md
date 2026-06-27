@@ -2,6 +2,8 @@
 
 BareBrainAPP 是面向 BareBrain 的 Flutter 局域网聊天客户端。当前版本通过 BareBrain 固件自带的本地 WebSocket 网关通信，并等待完整回复后再展示，所以聊天路径是非流式的。
 
+项目内的 `server/` 目录提供自建 WebSocket Relay MVP，方便后续在自己的服务器上中转消息，让 BareBrainAPP 在外网连接家里的 BareBrain，而不需要走飞书/Lark。
+
 ## 协议
 
 BareBrain 的局域网网关地址：
@@ -34,13 +36,16 @@ lib/src/features/chat/domain/        聊天实体、仓库接口和用例
 lib/src/features/chat/data/          BareBrain WebSocket 协议适配
 lib/src/features/chat/presentation/  控制器和 Flutter UI
 test/features/chat/                  单元测试
+server/                              自建 Relay 服务端和家里桥接程序
 ```
 
 ## 当前功能
 
 - 局域网 WebSocket 非流式聊天。
+- 云端 Relay 连接模式，可连接自建 `server/bin/relay_server.dart`。
 - 默认端口 `18789`，可在界面里修改设备 IP、端口、客户端 ID 和超时秒数。
 - 连接设置支持直接粘贴 `ws://<设备IP>:18789/`，保存时会归一化为主机名、端口和安全连接标记。
+- 连接设置支持切换“直连 / Relay”，Relay 模式会保存服务器地址、设备 ID、App Token 和 App 路径。
 - 连接设置支持测试 BareBrain WebSocket 握手，不发送聊天内容，方便局域网首连排错。
 - 发送后会等待 BareBrain 返回匹配 `chat_id` 的完整 `response`。
 - 默认会话沿用客户端 ID 作为 `chat_id`，新建会话会派生稳定的短 `chat_id`，避免 BareBrain 设备侧会话历史串在一起。

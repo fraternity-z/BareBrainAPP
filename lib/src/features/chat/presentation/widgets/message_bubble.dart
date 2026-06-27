@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_message.dart';
-import '../formatters/chat_message_time_formatter.dart';
 import 'liquid_glass.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -39,7 +38,6 @@ class MessageBubble extends StatelessWidget {
       fontFamily: _codeFontFamily(message.content, displaySettings),
       height: 1.42,
     );
-    final canShowCopy = onCopy != null && displaySettings.showMessageActions;
     final canShowRetry = onRetry != null && displaySettings.showMessageActions;
 
     return LayoutBuilder(
@@ -94,33 +92,7 @@ class MessageBubble extends StatelessWidget {
                     selectable: displaySettings.selectableMessageText,
                     foldThinkingSteps: displaySettings.foldThinkingSteps,
                   ),
-                  if (displaySettings.showMessageTimestamps) ...<Widget>[
-                    SizedBox(
-                      height: displaySettings.compactMessageSpacing ? 4 : 6,
-                    ),
-                    Text(
-                      ChatMessageTimeFormatter.format(message.createdAt),
-                      style: _scaledTextStyle(
-                        Theme.of(context).textTheme.labelSmall,
-                        displaySettings.messageFontScale,
-                      )?.copyWith(
-                        color: style.foreground.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  if (message.isPending) ...<Widget>[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 14,
-                      width: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: style.foreground,
-                      ),
-                    ),
-                  ],
-                  if (canShowCopy || canShowRetry) ...<Widget>[
+                  if (canShowRetry) ...<Widget>[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 4,
@@ -128,24 +100,14 @@ class MessageBubble extends StatelessWidget {
                       alignment:
                           isUser ? WrapAlignment.end : WrapAlignment.start,
                       children: <Widget>[
-                        if (canShowCopy)
-                          IconButton(
-                            tooltip: '复制消息',
-                            onPressed: onCopy,
-                            color: style.foreground,
-                            visualDensity: VisualDensity.compact,
-                            iconSize: 18,
-                            icon: const Icon(Icons.copy_all_outlined),
+                        TextButton.icon(
+                          onPressed: onRetry,
+                          style: TextButton.styleFrom(
+                            foregroundColor: style.foreground,
                           ),
-                        if (canShowRetry)
-                          TextButton.icon(
-                            onPressed: onRetry,
-                            style: TextButton.styleFrom(
-                              foregroundColor: style.foreground,
-                            ),
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('重试'),
-                          ),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('重试'),
+                        ),
                       ],
                     ),
                   ],

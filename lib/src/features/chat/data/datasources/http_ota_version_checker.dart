@@ -15,6 +15,10 @@ class HttpOtaVersionChecker {
   final ChatNetworkProxySettings Function()? networkProxySettingsProvider;
 
   Future<void> check(ChatConnectionSettings settings) async {
+    if (settings.isRelay) {
+      throw const ChatValidationException('云端 Relay 模式暂不支持 OTA 检查');
+    }
+
     final endpoint = Uri(
       scheme: settings.secure ? 'https' : 'http',
       host: settings.host,

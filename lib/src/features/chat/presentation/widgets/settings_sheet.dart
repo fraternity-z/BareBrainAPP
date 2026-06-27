@@ -28,6 +28,10 @@ class _SettingsSheetState extends State<SettingsSheet> {
   late final TextEditingController _port;
   late final TextEditingController _clientId;
   late final TextEditingController _timeout;
+  late final TextEditingController _relayDeviceId;
+  late final TextEditingController _relayToken;
+  late final TextEditingController _relayPath;
+  late ChatConnectionMode _mode;
   late bool _secure;
   bool _isTesting = false;
   String? _error;
@@ -42,6 +46,18 @@ class _SettingsSheetState extends State<SettingsSheet> {
     _timeout = TextEditingController(
       text: widget.settings.responseTimeout.inSeconds.toString(),
     );
+    _relayDeviceId = TextEditingController(
+      text: widget.settings.relayDeviceId.isEmpty
+          ? 'home'
+          : widget.settings.relayDeviceId,
+    );
+    _relayToken = TextEditingController(text: widget.settings.relayToken);
+    _relayPath = TextEditingController(
+      text: widget.settings.relayPath.isEmpty
+          ? ChatConnectionSettingsParser.defaultRelayPath
+          : widget.settings.relayPath,
+    );
+    _mode = widget.settings.mode;
     _secure = widget.settings.secure;
   }
 
@@ -51,6 +67,9 @@ class _SettingsSheetState extends State<SettingsSheet> {
     _port.dispose();
     _clientId.dispose();
     _timeout.dispose();
+    _relayDeviceId.dispose();
+    _relayToken.dispose();
+    _relayPath.dispose();
     super.dispose();
   }
 
@@ -80,12 +99,47 @@ class _SettingsSheetState extends State<SettingsSheet> {
                 const SizedBox(height: 20),
                 SettingsFormPanel(
                   children: <Widget>[
+                    SegmentedButton<ChatConnectionMode>(
+                      segments: const <ButtonSegment<ChatConnectionMode>>[
+                        ButtonSegment<ChatConnectionMode>(
+                          value: ChatConnectionMode.direct,
+                          icon: Icon(Icons.router_outlined),
+                          label: Text('直连'),
+                        ),
+                        ButtonSegment<ChatConnectionMode>(
+                          value: ChatConnectionMode.relay,
+                          icon: Icon(Icons.cloud_outlined),
+                          label: Text('Relay'),
+                        ),
+                      ],
+                      selected: <ChatConnectionMode>{_mode},
+                      onSelectionChanged: (selection) {
+                        setState(() {
+                          _mode = selection.single;
+                          if (_mode == ChatConnectionMode.relay &&
+                              _port.text.trim() ==
+                                  ChatConnectionSettingsParser.defaultPort
+                                      .toString()) {
+                            _port.text = _secure ? '443' : '80';
+                          }
+                          _error = null;
+                          _status = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       key: const Key('connection_host_field'),
                       controller: _host,
-                      decoration: const InputDecoration(
-                        labelText: '设备 IP',
-                        prefixIcon: Icon(Icons.dns_outlined),
+                      decoration: InputDecoration(
+                        labelText: _mode == ChatConnectionMode.relay
+                            ? 'Relay 域名或 IP'
+                            : '设备 IP',
+                        prefixIcon: Icon(
+                          _mode == ChatConnectionMode.relay
+                              ? Icons.cloud_outlined
+                              : Icons.dns_outlined,
+                        ),
                       ),
                       textInputAction: TextInputAction.next,
                       onChanged: (_) => _clearFeedback(),
@@ -123,6 +177,42 @@ class _SettingsSheetState extends State<SettingsSheet> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    if (_mode == ChatConnectionMode.relay) ...<Widget>[
+                      TextField(
+                        key: const Key('relay_device_id_field'),
+                        controller: _relayDeviceId,
+                        decoration: const InputDecoration(
+                          labelText: 'Relay 设备 ID',
+                          prefixIcon: Icon(Icons.memory_outlined),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => _clearFeedback(),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('relay_token_field'),
+                        controller: _relayToken,
+                        decoration: const InputDecoration(
+                          labelText: 'App Token',
+                          prefixIcon: Icon(Icons.vpn_key_outlined),
+                        ),
+                        obscureText: true,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => _clearFeedback(),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('relay_path_field'),
+                        controller: _relayPath,
+                        decoration: const InputDecoration(
+                          labelText: 'Relay App 路径',
+                          prefixIcon: Icon(Icons.route_outlined),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => _clearFeedback(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextField(
                       key: const Key('connection_client_id_field'),
                       controller: _clientId,
@@ -139,6 +229,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
                       onChanged: (value) {
                         setState(() {
                           _secure = value;
+                          if (_mode == ChatConnectionMode.relay &&
+                              (_port.text.trim() == '80' ||
+                                  _port.text.trim() == '443')) {
+                            _port.text = value ? '443' : '80';
+                          }
                           _error = null;
                           _status = null;
                         });
@@ -284,6 +379,10 @@ class _SettingsSheetState extends State<SettingsSheet> {
       clientIdInput: _clientId.text,
       timeoutSecondsInput: _timeout.text,
       secure: _secure,
+      mode: _mode,
+      relayDeviceIdInput: _relayDeviceId.text,
+      relayTokenInput: _relayToken.text,
+      relayPathInput: _relayPath.text,
     ).copyWith(otaSettings: widget.settings.otaSettings);
   }
 }

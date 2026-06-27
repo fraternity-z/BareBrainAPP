@@ -982,7 +982,7 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final preview = conversation.lastMessagePreview.isEmpty
-        ? conversation.settings.websocketUri.toString()
+        ? conversation.settings.connectionLabel
         : conversation.lastMessagePreview;
     final borderRadius = BorderRadius.circular(18);
     final subtitleTextStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1344,7 +1344,7 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   _HeaderConnectionPill(
-                    uri: settings.websocketUri.toString(),
+                    uri: settings.connectionLabel,
                   ),
                 ],
               ),

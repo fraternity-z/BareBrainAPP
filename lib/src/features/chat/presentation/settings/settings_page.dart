@@ -190,7 +190,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     key: const Key('settings_row_connection'),
                     icon: Icons.settings_ethernet,
                     title: '连接参数',
-                    value: _settings.websocketUri.toString(),
+                    value: _settings.connectionLabel,
                     onTap: _openConnectionSettings,
                   ),
                   SettingsRow(
@@ -960,8 +960,8 @@ class _StatisticsPageState extends State<_StatisticsPage> {
               _AboutInfoRow(
                 icon: Icons.router_outlined,
                 title: '网关',
-                value: connectionSettings.websocketUri.toString(),
-                copyValue: connectionSettings.websocketUri.toString(),
+                value: connectionSettings.connectionLabel,
+                copyValue: connectionSettings.redactedWebsocketUri.toString(),
               ),
               _AboutInfoRow(
                 icon: Icons.timer_outlined,
@@ -1039,56 +1039,310 @@ class _DocumentationPage extends StatelessWidget {
       port: AppConfig.defaultPort,
       path: '/',
     ).toString();
+    final tabs = _buildDocumentationTabs(defaultGateway);
 
-    return SettingsScreenFrame(
-      title: '使用文档',
-      child: ListView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
+    return DefaultTabController(
+      length: tabs.length,
+      child: SettingsScreenFrame(
+        title: '使用文档',
+        child: Column(
+          children: <Widget>[
+            _DocumentationTabBar(tabs: tabs),
+            Expanded(
+              child: TabBarView(
+                children: <Widget>[
+                  for (final tab in tabs) _DocumentationTabView(tab: tab),
+                ],
+              ),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-        children: <Widget>[
-          _SettingsTextCard(
-            icon: Icons.router_outlined,
-            title: '连接 BareBrain',
-            paragraphs: <String>[
-              '默认网关为 $defaultGateway，可在“连接参数”里修改设备 IP、端口、客户端 ID 和响应超时。',
-              '设置页里的连接测试只验证 WebSocket 握手，不会向 BareBrain 发送聊天内容。',
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _SettingsTextCard(
-            icon: Icons.chat_bubble_outline,
-            title: '聊天与会话',
-            paragraphs: <String>[
-              '宽屏使用左侧会话栏，窄屏使用抽屉。会话支持新建、切换、重命名和删除非当前会话。',
-              '发送失败后可以重试最后一条用户消息；开启确认后，重新生成前会先弹出确认框。',
-              '输入栏的快捷命令会插入内置模板，快捷短语会插入你在设置页维护的自定义内容。',
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _SettingsTextCard(
-            icon: Icons.tune_outlined,
-            title: '增强与服务',
-            paragraphs: <String>[
-              '指令注入会在发送时拼接到传输内容，本地聊天记录仍保留原始输入。',
-              '语音服务启用后，会在收到助手回复时把回复文本 POST 到配置的 HTTP 服务。',
-              '网络代理会应用到聊天 WebSocket、语音服务和 OTA 检查请求。',
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _SettingsTextCard(
-            icon: Icons.backup_outlined,
-            title: '数据与迁移',
-            paragraphs: <String>[
-              '本地会话、草稿、显示设置和应用设置会通过 Key-Value JSON 持久化。',
-              '备份与恢复支持导出和粘贴恢复 JSON，适合在设备间迁移本地配置。',
-            ],
-          ),
-        ],
       ),
     );
   }
+}
+
+class _DocumentationTabBar extends StatelessWidget {
+  const _DocumentationTabBar({
+    required this.tabs,
+  });
+
+  final List<_DocumentationTab> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
+    final secondary = settingsSecondaryTextColor(context);
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: DecoratedBox(
+        decoration: settingsCardDecoration(context),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: TabBar(
+            isScrollable: true,
+            dividerColor: Colors.transparent,
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicator: BoxDecoration(
+              color: Color.alphaBlend(
+                colors.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+                settingsCardBackgroundColor(context),
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colors.primary.withValues(alpha: isDark ? 0.36 : 0.24),
+              ),
+            ),
+            labelColor: primary,
+            unselectedLabelColor: secondary,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+            tabs: <Widget>[
+              for (final tab in tabs)
+                Tab(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(tab.icon, size: 19),
+                        const SizedBox(width: 8),
+                        Text(
+                          tab.label,
+                          style:
+                              Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentationTabView extends StatelessWidget {
+  const _DocumentationTabView({
+    required this.tab,
+  });
+
+  final _DocumentationTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      children: <Widget>[
+        _DocumentationIntroCard(tab: tab),
+        const SizedBox(height: 16),
+        for (var index = 0; index < tab.cards.length; index++) ...<Widget>[
+          if (index > 0) const SizedBox(height: 16),
+          _SettingsTextCard(
+            icon: tab.cards[index].icon,
+            title: tab.cards[index].title,
+            paragraphs: tab.cards[index].paragraphs,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DocumentationIntroCard extends StatelessWidget {
+  const _DocumentationIntroCard({
+    required this.tab,
+  });
+
+  final _DocumentationTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final strong = settingsPrimaryTextColor(context);
+    final soft = settingsSecondaryTextColor(context);
+
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+        child: Row(
+          children: <Widget>[
+            _AboutIconBox(icon: tab.icon),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    tab.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: strong,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tab.description,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: soft,
+                          fontSize: 15,
+                          height: 1.42,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentationTab {
+  const _DocumentationTab({
+    required this.label,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.cards,
+  });
+
+  final String label;
+  final String title;
+  final String description;
+  final IconData icon;
+  final List<_DocumentationCardData> cards;
+}
+
+class _DocumentationCardData {
+  const _DocumentationCardData({
+    required this.icon,
+    required this.title,
+    required this.paragraphs,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> paragraphs;
+}
+
+List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
+  return <_DocumentationTab>[
+    _DocumentationTab(
+      label: '连接',
+      title: '连接 BareBrain',
+      description: '配置局域网网关、客户端身份和连接验证，先确认设备能稳定握手。',
+      icon: Icons.router_outlined,
+      cards: <_DocumentationCardData>[
+        _DocumentationCardData(
+          icon: Icons.settings_ethernet_outlined,
+          title: '网关参数',
+          paragraphs: <String>[
+            '默认网关为 $defaultGateway，可在“连接参数”里修改设备 IP、端口、客户端 ID 和响应超时。',
+            '客户端 ID 会随每次聊天请求发送，用来区分不同设备或应用实例。',
+          ],
+        ),
+        const _DocumentationCardData(
+          icon: Icons.fact_check_outlined,
+          title: '连接测试',
+          paragraphs: <String>[
+            '设置页里的连接测试只验证 WebSocket 握手，不会向 BareBrain 发送聊天内容。',
+            '如果测试失败，优先确认手机或电脑与 BareBrain 位于同一局域网，再检查代理和端口配置。',
+          ],
+        ),
+      ],
+    ),
+    const _DocumentationTab(
+      label: '聊天',
+      title: '聊天与会话',
+      description: '管理会话列表、消息发送、重新生成以及输入栏里的常用内容。',
+      icon: Icons.chat_bubble_outline,
+      cards: <_DocumentationCardData>[
+        _DocumentationCardData(
+          icon: Icons.forum_outlined,
+          title: '会话管理',
+          paragraphs: <String>[
+            '宽屏使用左侧会话栏，窄屏使用抽屉。会话支持新建、切换、重命名和删除非当前会话。',
+            '本地会话会根据存储设置自动保存，关闭自动保存后仍可继续当前临时对话。',
+          ],
+        ),
+        _DocumentationCardData(
+          icon: Icons.replay_outlined,
+          title: '发送与重试',
+          paragraphs: <String>[
+            '发送失败后可以重试最后一条用户消息；开启确认后，重新生成前会先弹出确认框。',
+            '输入栏支持快捷命令插入内置模板，也可以插入你在设置页维护的自定义快捷短语。',
+          ],
+        ),
+      ],
+    ),
+    const _DocumentationTab(
+      label: '增强',
+      title: '增强与服务',
+      description: '把提示词、语音服务、网络代理等能力接入日常聊天流程。',
+      icon: Icons.tune_outlined,
+      cards: <_DocumentationCardData>[
+        _DocumentationCardData(
+          icon: Icons.auto_awesome_outlined,
+          title: '指令注入',
+          paragraphs: <String>[
+            '指令注入会在发送时拼接到传输内容，本地聊天记录仍保留原始输入。',
+            '适合放置角色设定、回复格式、长期偏好等希望每次请求都携带的内容。',
+          ],
+        ),
+        _DocumentationCardData(
+          icon: Icons.record_voice_over_outlined,
+          title: '外部服务',
+          paragraphs: <String>[
+            '语音服务启用后，会在收到助手回复时把回复文本 POST 到配置的 HTTP 服务。',
+            '网络代理会应用到聊天 WebSocket、语音服务和 OTA 检查请求。',
+          ],
+        ),
+      ],
+    ),
+    const _DocumentationTab(
+      label: '数据',
+      title: '数据与迁移',
+      description: '了解本地持久化、备份恢复和跨设备迁移配置的方式。',
+      icon: Icons.backup_outlined,
+      cards: <_DocumentationCardData>[
+        _DocumentationCardData(
+          icon: Icons.storage_outlined,
+          title: '本地数据',
+          paragraphs: <String>[
+            '本地会话、草稿、显示设置和应用设置会通过 Key-Value JSON 持久化。',
+            '存储统计页会展示聊天记录和会话目录占用，便于确认可清理空间。',
+          ],
+        ),
+        _DocumentationCardData(
+          icon: Icons.ios_share_outlined,
+          title: '备份恢复',
+          paragraphs: <String>[
+            '备份与恢复支持导出和粘贴恢复 JSON，适合在设备间迁移本地配置。',
+            '恢复配置前建议先导出当前数据，便于在参数不符合预期时回退。',
+          ],
+        ),
+      ],
+    ),
+  ];
 }
 
 class _SponsorPage extends StatelessWidget {

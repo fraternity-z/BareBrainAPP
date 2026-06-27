@@ -14,6 +14,10 @@ class ChatConnectionSettingsCodec {
       'clientId': settings.clientId,
       'responseTimeoutMs': settings.responseTimeout.inMilliseconds,
       'secure': settings.secure,
+      'mode': settings.mode.name,
+      'relayDeviceId': settings.relayDeviceId,
+      'relayToken': settings.relayToken,
+      'relayPath': settings.relayPath,
       'otaSettings': ChatOtaSettingsCodec.toJson(settings.otaSettings),
     };
   }
@@ -24,6 +28,10 @@ class ChatConnectionSettingsCodec {
     final clientId = value['clientId'];
     final responseTimeoutMs = value['responseTimeoutMs'];
     final secure = value['secure'];
+    final mode = value['mode'];
+    final relayDeviceId = value['relayDeviceId'];
+    final relayToken = value['relayToken'];
+    final relayPath = value['relayPath'];
     final otaSettings = value['otaSettings'];
 
     if (host is! String ||
@@ -40,11 +48,29 @@ class ChatConnectionSettingsCodec {
         clientId: clientId,
         responseTimeout: Duration(milliseconds: responseTimeoutMs),
         secure: secure is bool ? secure : false,
+        mode: _modeFromJson(mode),
+        relayDeviceId: relayDeviceId is String ? relayDeviceId : '',
+        relayToken: relayToken is String ? relayToken : '',
+        relayPath: relayPath is String
+            ? relayPath
+            : ChatConnectionSettingsParser.defaultRelayPath,
         otaSettings: otaSettings is Map<String, dynamic>
             ? ChatOtaSettingsCodec.fromJson(otaSettings)
             : const ChatOtaSettings(),
       ),
     );
+  }
+
+  static ChatConnectionMode _modeFromJson(Object? value) {
+    if (value is String) {
+      for (final mode in ChatConnectionMode.values) {
+        if (mode.name == value) {
+          return mode;
+        }
+      }
+    }
+
+    return ChatConnectionMode.direct;
   }
 }
 

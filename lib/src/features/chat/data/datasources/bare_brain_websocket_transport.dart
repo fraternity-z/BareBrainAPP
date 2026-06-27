@@ -70,7 +70,9 @@ class BareBrainWebSocketTransport implements ChatTransport {
       final responseFuture = connection.messages
           .map(BareBrainWsPayload.decode)
           .where((event) {
-            return event.isResponse && event.chatId == chatId;
+            return (event.isResponse && event.chatId == chatId) ||
+                (event.isError &&
+                    (event.chatId.isEmpty || event.chatId == chatId));
           })
           .first
           .timeout(
@@ -83,7 +85,12 @@ class BareBrainWebSocketTransport implements ChatTransport {
           );
 
       connection.send(request.encode());
-      return await responseFuture;
+      final response = await responseFuture;
+      if (response.isError) {
+        throw ChatConnectionException(response.content);
+      }
+
+      return response;
     } on ChatException {
       rethrow;
     } on TimeoutException {

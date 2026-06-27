@@ -3,6 +3,7 @@
 .flutter-plugins-dependencies
 .packages
 build/
+server/.env
 
 android/.gradle/
 ios/Flutter/Generated.xcconfig

@@ -29,7 +29,24 @@ class BareBrainWsPayload {
     final content = value['content'];
     final chatId = value['chat_id'];
 
-    if (type is! String || content is! String || chatId is! String) {
+    if (type is! String) {
+      throw const ChatProtocolException('BareBrain 响应缺少必要字段');
+    }
+
+    if (type == 'error') {
+      final message = value['message'];
+      if (message is! String) {
+        throw const ChatProtocolException('BareBrain 错误响应缺少消息');
+      }
+
+      return BareBrainWsPayload(
+        type: type,
+        content: message,
+        chatId: chatId is String ? chatId : '',
+      );
+    }
+
+    if (content is! String || chatId is! String) {
       throw const ChatProtocolException('BareBrain 响应缺少必要字段');
     }
 
@@ -55,6 +72,7 @@ class BareBrainWsPayload {
   final String chatId;
 
   bool get isResponse => type == 'response';
+  bool get isError => type == 'error';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
