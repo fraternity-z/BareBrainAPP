@@ -9,13 +9,22 @@ enum ChatColorMode {
 }
 
 enum ChatThemePreset {
-  seaFog('浅灰'),
-  graphite('岩灰'),
-  warmSun('深灰');
+  monochrome('黑白灰', '克制的中性色强调，适合纯粹黑白灰界面'),
+  defaultTheme('默认主题', '简洁现代的默认设计风格'),
+  claude('Claude 风格', '温暖优雅的 Claude AI 设计风格'),
+  natural('自然风格', '2025年流行的自然系大地色调设计'),
+  futureTech('未来科技', '2025年流行的科技感设计，冷色调与玻璃态效果'),
+  gentleGradient('柔和渐变', '2025年流行的柔和渐变设计，温暖舒适的视觉体验'),
+  ocean('海洋风格', '2025年流行的海洋蓝绿色系，清新舒适的视觉体验'),
+  sunset('日落风格', '2025年流行的日落色系，温暖浪漫的视觉氛围'),
+  cinnamonBoard('肉桂板岩', '2025年流行趋势：深邃温暖的色调，带来内心的平静'),
+  horizonGreen('地平线绿', '2025年日本代表色：带黄调的绿色，象征希望与自然'),
+  cherryCoding('樱桃编码', '2025年流行趋势：深樱桃红色，传达热情与活力');
 
-  const ChatThemePreset(this.label);
+  const ChatThemePreset(this.label, this.description);
 
   final String label;
+  final String description;
 }
 
 enum ChatMessageBackground {
@@ -53,7 +62,7 @@ enum ChatCodeFont {
 class ChatDisplaySettings {
   const ChatDisplaySettings({
     this.colorMode = ChatColorMode.system,
-    this.themePreset = ChatThemePreset.graphite,
+    this.themePreset = ChatThemePreset.defaultTheme,
     this.showMessageAvatars = true,
     this.showMessageAuthorNames = false,
     this.showMessageTimestamps = true,

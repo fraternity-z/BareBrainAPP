@@ -46,10 +46,7 @@ BoxDecoration settingsCardDecoration(BuildContext context) {
           palette.card,
         ).withValues(alpha: isDark ? 0.84 : 0.94),
         palette.card.withValues(alpha: isDark ? 0.78 : 0.86),
-        Color.alphaBlend(
-          colors.primary.withValues(alpha: isDark ? 0.12 : 0.07),
-          palette.card,
-        ).withValues(alpha: isDark ? 0.82 : 0.90),
+        palette.card.withValues(alpha: isDark ? 0.82 : 0.90),
       ],
     ),
     borderRadius: BorderRadius.circular(settingsCardRadius),
@@ -623,26 +620,33 @@ class _SettingsPalette {
 
   static _SettingsPalette of(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
     if (isDark) {
-      return const _SettingsPalette(
-        background: Color(0xff101011),
-        card: Color(0xff1b1b1d),
-        iconBackground: Color(0xff242426),
-        textStrong: Color(0xfff4f4f5),
-        textSoft: Color(0xffa6a6aa),
-        divider: Color(0xff303034),
-        cardShadow: <BoxShadow>[],
+      return _SettingsPalette(
+        background: colors.surfaceContainerLow,
+        card: colors.surfaceContainerLowest,
+        iconBackground: colors.surfaceContainer,
+        textStrong: colors.onSurface,
+        textSoft: colors.onSurfaceVariant,
+        divider: colors.outlineVariant.withValues(alpha: 0.72),
+        cardShadow: const <BoxShadow>[],
       );
     }
 
-    return const _SettingsPalette(
-      background: settingsPageBackground,
-      card: settingsCardBackground,
-      iconBackground: Color(0xfff2f2f3),
-      textStrong: settingsPrimaryText,
-      textSoft: settingsSecondaryText,
-      divider: settingsDividerColor,
-      cardShadow: <BoxShadow>[],
+    return _SettingsPalette(
+      background: colors.surfaceContainerLow,
+      card: colors.surfaceContainerLowest,
+      iconBackground: colors.surfaceContainer,
+      textStrong: colors.onSurface,
+      textSoft: colors.onSurfaceVariant,
+      divider: colors.outlineVariant.withValues(alpha: 0.82),
+      cardShadow: <BoxShadow>[
+        BoxShadow(
+          color: colors.shadow.withValues(alpha: 0.05),
+          blurRadius: 24,
+          offset: const Offset(0, 10),
+        ),
+      ],
     );
   }
 }

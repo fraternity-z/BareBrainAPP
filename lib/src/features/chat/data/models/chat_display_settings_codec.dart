@@ -62,8 +62,7 @@ class ChatDisplaySettingsCodec {
         value['colorMode'],
         defaults.colorMode,
       ),
-      themePreset: _enumValue(
-        ChatThemePreset.values,
+      themePreset: _themePresetValue(
         value['themePreset'],
         defaults.themePreset,
       ),
@@ -195,6 +194,23 @@ class ChatDisplaySettingsCodec {
     }
 
     return fallback;
+  }
+
+  static ChatThemePreset _themePresetValue(
+    Object? source,
+    ChatThemePreset fallback,
+  ) {
+    final preset = _enumValue(ChatThemePreset.values, source, fallback);
+    if (preset != fallback || source is! String) {
+      return preset;
+    }
+
+    return switch (source) {
+      'seaFog' => ChatThemePreset.ocean,
+      'graphite' => ChatThemePreset.monochrome,
+      'warmSun' => ChatThemePreset.cinnamonBoard,
+      _ => fallback,
+    };
   }
 
   static bool _boolValue(Object? source, bool fallback) {

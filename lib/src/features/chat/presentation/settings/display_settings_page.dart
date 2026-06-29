@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/app_theme.dart';
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_message.dart';
 import '../widgets/message_bubble.dart';
@@ -402,87 +403,27 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: _ThemePreviewCard(settings: _settings),
           ),
-          SettingsSection(
-            title: '主题',
-            children: <Widget>[
-              SettingsRow(
-                key: const Key('theme_color_mode_row'),
-                icon: Icons.light_mode_outlined,
-                title: '颜色模式',
-                value: _settings.colorMode.label,
-                onTap: () => unawaited(_openColorMode()),
-              ),
-              SettingsRow(
-                key: const Key('theme_preset_row'),
-                icon: Icons.palette_outlined,
-                title: '主题预设',
-                value: _settings.themePreset.label,
-                onTap: () => unawaited(_openThemePreset()),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: _ColorModeSegmentedControl(
+              selected: _settings.colorMode,
+              onChanged: (mode) {
+                _update(_settings.copyWith(colorMode: mode));
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+            child: _ThemePresetGrid(
+              selected: _settings.themePreset,
+              onSelected: (preset) {
+                _update(_settings.copyWith(themePreset: preset));
+              },
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _openThemePreset() {
-    return _showChoiceSheet<ChatThemePreset>(
-      title: '主题预设',
-      selected: _settings.themePreset,
-      items: ChatThemePreset.values.map((preset) {
-        return _ChoiceItem<ChatThemePreset>(
-          key: 'theme_preset_${preset.name}',
-          label: preset.label,
-          value: preset,
-        );
-      }).toList(),
-      onSelected: (preset) {
-        _update(_settings.copyWith(themePreset: preset));
-      },
-    );
-  }
-
-  Future<void> _openColorMode() {
-    return _showChoiceSheet<ChatColorMode>(
-      title: '颜色模式',
-      selected: _settings.colorMode,
-      items: ChatColorMode.values.map((mode) {
-        return _ChoiceItem<ChatColorMode>(
-          key: 'theme_color_mode_${mode.name}',
-          label: mode.label,
-          value: mode,
-        );
-      }).toList(),
-      onSelected: (mode) {
-        _update(_settings.copyWith(colorMode: mode));
-      },
-    );
-  }
-
-  Future<void> _showChoiceSheet<T>({
-    required String title,
-    required T selected,
-    required List<_ChoiceItem<T>> items,
-    required ValueChanged<T> onSelected,
-  }) async {
-    final next = await showModalBottomSheet<T>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return _ChoiceSheet<T>(
-          title: title,
-          selected: selected,
-          items: items,
-        );
-      },
-    );
-
-    if (next == null || !mounted) {
-      return;
-    }
-
-    onSelected(next);
   }
 
   void _update(ChatDisplaySettings settings) {
@@ -1268,6 +1209,479 @@ class _ThemeColorDot extends StatelessWidget {
   }
 }
 
+class _ColorModeSegmentedControl extends StatelessWidget {
+  const _ColorModeSegmentedControl({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ChatColorMode selected;
+  final ValueChanged<ChatColorMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final primary = settingsPrimaryTextColor(context);
+    final secondary = settingsSecondaryTextColor(context);
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '颜色模式',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: ChatColorMode.values.map((mode) {
+                    final active = mode == selected;
+                    return SizedBox(
+                      width: compact
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 20) / 3,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => onChanged(mode),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOut,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? colors.primaryContainer
+                                  : colors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: active
+                                    ? colors.primary
+                                    : settingsDividerColorFor(context),
+                                width: active ? 1.4 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(
+                                  _iconForColorMode(mode),
+                                  size: 18,
+                                  color: active
+                                      ? colors.onPrimaryContainer
+                                      : secondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    mode.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: active
+                                              ? colors.onPrimaryContainer
+                                              : primary,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForColorMode(ChatColorMode mode) {
+    return switch (mode) {
+      ChatColorMode.system => Icons.brightness_auto_outlined,
+      ChatColorMode.light => Icons.light_mode_outlined,
+      ChatColorMode.dark => Icons.dark_mode_outlined,
+    };
+  }
+}
+
+class _ThemePresetGrid extends StatelessWidget {
+  const _ThemePresetGrid({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ChatThemePreset selected;
+  final ValueChanged<ChatThemePreset> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = settingsPrimaryTextColor(context);
+    final secondary = settingsSecondaryTextColor(context);
+    return DecoratedBox(
+      decoration: settingsCardDecoration(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '主题风格',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '选择您喜欢的界面设计风格，每种风格都有独特的色彩搭配和视觉效果',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: secondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+            ),
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 14.0;
+                final columns =
+                    (constraints.maxWidth / 238).floor().clamp(1, 8);
+                final cardWidth =
+                    (constraints.maxWidth - spacing * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: ChatThemePreset.values.map((preset) {
+                    return SizedBox(
+                      width: cardWidth,
+                      child: _ThemePresetCard(
+                        preset: preset,
+                        selected: preset == selected,
+                        onSelected: () => onSelected(preset),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemePresetCard extends StatelessWidget {
+  const _ThemePresetCard({
+    required this.preset,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ChatThemePreset preset;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewColors = BareBrainTheme.light(
+      displaySettings: ChatDisplaySettings(themePreset: preset),
+    ).colorScheme;
+    final appColors = Theme.of(context).colorScheme;
+    final borderColor =
+        selected ? previewColors.primary : appColors.outlineVariant;
+    final textColor = selected ? previewColors.onSurface : appColors.onSurface;
+    final softTextColor =
+        selected ? previewColors.onSurfaceVariant : appColors.onSurfaceVariant;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: preset.label,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onSelected,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            constraints: const BoxConstraints(minHeight: 214),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            decoration: BoxDecoration(
+              color: previewColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: borderColor, width: selected ? 1.8 : 1),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: previewColors.primary.withValues(
+                    alpha: selected ? 0.14 : 0.06,
+                  ),
+                  blurRadius: selected ? 20 : 12,
+                  offset: Offset(0, selected ? 10 : 5),
+                ),
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _ThemeMiniWindow(colors: previewColors),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          _iconForPreset(preset),
+                          size: 20,
+                          color: previewColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            preset.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: textColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      preset.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: softTextColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.28,
+                            letterSpacing: 0,
+                          ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: <Widget>[
+                        _ThemeColorDot(color: previewColors.primary),
+                        const SizedBox(width: 8),
+                        _ThemeColorDot(color: previewColors.secondary),
+                        const SizedBox(width: 8),
+                        _ThemeColorDot(color: previewColors.tertiary),
+                        if (selected) ...<Widget>[
+                          const Spacer(),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: previewColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                '当前',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: previewColors.onSurfaceVariant,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                if (selected)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: previewColors.primaryContainer,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: previewColors.primary),
+                      ),
+                      child: SizedBox.square(
+                        dimension: 26,
+                        child: Icon(
+                          Icons.check,
+                          size: 17,
+                          color: previewColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForPreset(ChatThemePreset preset) {
+    return switch (preset) {
+      ChatThemePreset.monochrome => Icons.contrast,
+      ChatThemePreset.defaultTheme => Icons.palette_outlined,
+      ChatThemePreset.claude => Icons.auto_awesome,
+      ChatThemePreset.natural => Icons.eco_outlined,
+      ChatThemePreset.futureTech => Icons.bolt_outlined,
+      ChatThemePreset.gentleGradient => Icons.favorite_border,
+      ChatThemePreset.ocean => Icons.water,
+      ChatThemePreset.sunset => Icons.wb_sunny_outlined,
+      ChatThemePreset.cinnamonBoard => Icons.coffee_outlined,
+      ChatThemePreset.horizonGreen => Icons.change_history,
+      ChatThemePreset.cherryCoding => Icons.code,
+    };
+  }
+}
+
+class _ThemeMiniWindow extends StatelessWidget {
+  const _ThemeMiniWindow({
+    required this.colors,
+  });
+
+  final ColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 2.65,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: colors.primary.withValues(alpha: 0.14),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const SizedBox(width: 7),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const SizedBox.square(dimension: 8),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colors.onSurfaceVariant.withValues(
+                              alpha: 0.34,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const SizedBox(height: 5),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color:
+                        colors.surfaceContainerLowest.withValues(alpha: 0.86),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const SizedBox(width: 9),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.secondary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const SizedBox.square(dimension: 9),
+                      ),
+                      const SizedBox(width: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.tertiary.withValues(alpha: 0.56),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const SizedBox(width: 28, height: 7),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatItemsPreviewCard extends StatelessWidget {
   const _ChatItemsPreviewCard({
     required this.settings,
@@ -1379,6 +1793,7 @@ class _RenderingSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = settingsPrimaryTextColor(context);
+    final colors = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1421,17 +1836,17 @@ class _RenderingSwitchRow extends StatelessWidget {
                   ),
                   trackColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return const Color(0xff4665a0);
+                      return colors.primary;
                     }
 
-                    return const Color(0xffe6e6e8);
+                    return colors.surfaceContainerHighest;
                   }),
                   trackOutlineColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return const Color(0xff4665a0);
+                      return colors.primary;
                     }
 
-                    return const Color(0xffd6d6d9);
+                    return colors.outlineVariant;
                   }),
                 ),
               ],
@@ -1656,10 +2071,9 @@ class _SettingsSliderSheetState extends State<_SettingsSliderSheet> {
   Widget build(BuildContext context) {
     final primary = settingsPrimaryTextColor(context);
     final secondary = settingsSecondaryTextColor(context);
-    const activeColor = Color(0xff4665a0);
-    final inactiveColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xff3a3a40)
-        : const Color(0xffd6d6dc);
+    final colors = Theme.of(context).colorScheme;
+    final activeColor = colors.primary;
+    final inactiveColor = colors.surfaceContainerHighest;
 
     return SafeArea(
       child: Padding(
