@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_markdown_plus_latex/flutter_markdown_plus_latex.dart';
+import 'package:markdown/markdown.dart' as md;
 
 import '../../domain/entities/chat_display_settings.dart';
 import '../../domain/entities/chat_message.dart';
@@ -23,11 +26,15 @@ class MessageBubble extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final isUser = message.author == ChatMessageAuthor.user;
     final isSystem = message.author == ChatMessageAuthor.system;
+    final isError = message.error != null;
+    final isPendingAssistant =
+        message.author == ChatMessageAuthor.assistant && message.isPending;
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
     final style = _BubbleStyle.resolve(
       colors,
       isUser: isUser,
       isSystem: isSystem,
+      isError: isError,
       background: displaySettings.messageBackground,
     );
     final contentStyle = _scaledTextStyle(
@@ -38,7 +45,9 @@ class MessageBubble extends StatelessWidget {
       fontFamily: _codeFontFamily(message.content, displaySettings),
       height: 1.42,
     );
-    final canShowRetry = onRetry != null && displaySettings.showMessageActions;
+    final canShowRetry = !message.isPending &&
+        onRetry != null &&
+        displaySettings.showMessageActions;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -85,13 +94,29 @@ class MessageBubble extends StatelessWidget {
                       height: displaySettings.compactMessageSpacing ? 4 : 6,
                     ),
                   ],
-                  _MessageContent(
-                    content: message.content,
-                    foreground: style.foreground,
-                    textStyle: contentStyle,
-                    selectable: displaySettings.selectableMessageText,
-                    foldThinkingSteps: displaySettings.foldThinkingSteps,
-                  ),
+                  if (isPendingAssistant)
+                    _PendingAssistantContent(
+                      foreground: style.foreground,
+                      textStyle: contentStyle,
+                    )
+                  else
+                    _MessageContent(
+                      author: message.author,
+                      content: message.content,
+                      foreground: style.foreground,
+                      textStyle: contentStyle,
+                      selectable: displaySettings.selectableMessageText,
+                      foldThinkingSteps: displaySettings.foldThinkingSteps,
+                      inlineMathRendering: displaySettings.inlineMathRendering,
+                      mathEquationRendering:
+                          displaySettings.mathEquationRendering,
+                      userMarkdownRendering:
+                          displaySettings.userMessageMarkdownRendering,
+                      reasoningMarkdownRendering:
+                          displaySettings.reasoningMarkdownRendering,
+                      assistantMarkdownRendering:
+                          displaySettings.assistantMessageMarkdownRendering,
+                    ),
                   if (canShowRetry) ...<Widget>[
                     const SizedBox(height: 8),
                     Wrap(
@@ -149,37 +174,152 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
+class _PendingAssistantContent extends StatefulWidget {
+  const _PendingAssistantContent({
+    required this.foreground,
+    required this.textStyle,
+  });
+
+  final Color foreground;
+  final TextStyle? textStyle;
+
+  @override
+  State<_PendingAssistantContent> createState() =>
+      _PendingAssistantContentState();
+}
+
+class _PendingAssistantContentState extends State<_PendingAssistantContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.textStyle?.copyWith(
+          color: widget.foreground,
+          fontWeight: FontWeight.w700,
+        ) ??
+        TextStyle(
+          color: widget.foreground,
+          fontWeight: FontWeight.w700,
+        );
+
+    return Semantics(
+      label: 'BareBrain 正在思考',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text('正在思考', style: style),
+            const SizedBox(width: 7),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List<Widget>.generate(3, (index) {
+                    final phase = (_controller.value + index / 3) % 1;
+                    final opacity =
+                        phase < 0.5 ? 0.35 + phase * 1.3 : 1.65 - phase * 1.3;
+                    final scale =
+                        phase < 0.5 ? 0.82 + phase * 0.36 : 1.18 - phase * 0.36;
+
+                    return Padding(
+                      padding: EdgeInsets.only(left: index == 0 ? 0 : 4),
+                      child: Opacity(
+                        opacity: opacity,
+                        child: Transform.scale(
+                          scale: scale,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: widget.foreground,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const SizedBox.square(dimension: 5),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageContent extends StatelessWidget {
   const _MessageContent({
+    required this.author,
     required this.content,
     required this.foreground,
     required this.textStyle,
     required this.selectable,
     required this.foldThinkingSteps,
+    required this.inlineMathRendering,
+    required this.mathEquationRendering,
+    required this.userMarkdownRendering,
+    required this.reasoningMarkdownRendering,
+    required this.assistantMarkdownRendering,
   });
 
+  final ChatMessageAuthor author;
   final String content;
   final Color foreground;
   final TextStyle? textStyle;
   final bool selectable;
   final bool foldThinkingSteps;
+  final bool inlineMathRendering;
+  final bool mathEquationRendering;
+  final bool userMarkdownRendering;
+  final bool reasoningMarkdownRendering;
+  final bool assistantMarkdownRendering;
 
   @override
   Widget build(BuildContext context) {
+    final markdownOptions = _MarkdownRenderOptions(
+      inlineMath: inlineMathRendering,
+      blockMath: mathEquationRendering,
+    );
+    final messageMarkdown = _markdownEnabledFor(author);
+
     if (!foldThinkingSteps) {
-      return _MessageText(
+      return _MessageTextRenderer(
         content: content,
         selectable: selectable,
         style: textStyle,
+        foreground: foreground,
+        markdown: messageMarkdown,
+        markdownOptions: markdownOptions,
       );
     }
 
     final segments = _parseThinkingSegments(content);
     if (segments.length == 1 && !segments.first.isThinking) {
-      return _MessageText(
+      return _MessageTextRenderer(
         content: content,
         selectable: selectable,
         style: textStyle,
+        foreground: foreground,
+        markdown: messageMarkdown,
+        markdownOptions: markdownOptions,
       );
     }
 
@@ -201,11 +341,16 @@ class _MessageContent extends StatelessWidget {
                 foreground: foreground,
                 textStyle: textStyle,
                 selectable: selectable,
+                markdown: reasoningMarkdownRendering,
+                markdownOptions: markdownOptions,
               )
-            : _MessageText(
+            : _MessageTextRenderer(
                 content: text,
                 selectable: selectable,
                 style: textStyle,
+                foreground: foreground,
+                markdown: messageMarkdown,
+                markdownOptions: markdownOptions,
               ),
       );
     }
@@ -219,21 +364,45 @@ class _MessageContent extends StatelessWidget {
       children: children,
     );
   }
+
+  bool _markdownEnabledFor(ChatMessageAuthor author) {
+    return switch (author) {
+      ChatMessageAuthor.user => userMarkdownRendering,
+      ChatMessageAuthor.assistant => assistantMarkdownRendering,
+      ChatMessageAuthor.system => false,
+    };
+  }
 }
 
-class _MessageText extends StatelessWidget {
-  const _MessageText({
+class _MessageTextRenderer extends StatelessWidget {
+  const _MessageTextRenderer({
     required this.content,
     required this.selectable,
     required this.style,
+    required this.foreground,
+    required this.markdown,
+    required this.markdownOptions,
   });
 
   final String content;
   final bool selectable;
   final TextStyle? style;
+  final Color foreground;
+  final bool markdown;
+  final _MarkdownRenderOptions markdownOptions;
 
   @override
   Widget build(BuildContext context) {
+    if (markdown) {
+      return _MarkdownMessageText(
+        content: content,
+        selectable: selectable,
+        style: style,
+        foreground: foreground,
+        options: markdownOptions,
+      );
+    }
+
     if (selectable) {
       return SelectableText(content, style: style);
     }
@@ -242,18 +411,161 @@ class _MessageText extends StatelessWidget {
   }
 }
 
+class _MarkdownMessageText extends StatelessWidget {
+  const _MarkdownMessageText({
+    required this.content,
+    required this.selectable,
+    required this.style,
+    required this.foreground,
+    required this.options,
+  });
+
+  final String content;
+  final bool selectable;
+  final TextStyle? style;
+  final Color foreground;
+  final _MarkdownRenderOptions options;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseStyle = style ?? theme.textTheme.bodyMedium;
+    final codeStyle = baseStyle?.copyWith(
+      color: foreground,
+      fontFamily: 'monospace',
+      backgroundColor: foreground.withValues(alpha: 0.08),
+    );
+    final normalized = _normalizeMathBlocks(content, options);
+    final syntaxes = <md.BlockSyntax>[
+      if (options.blockMath) LatexBlockSyntax(),
+      ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+    ];
+    final inlineSyntaxes = <md.InlineSyntax>[
+      if (options.inlineMath || options.blockMath) LatexInlineSyntax(),
+      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+    ];
+
+    return MarkdownBody(
+      data: normalized,
+      selectable: selectable,
+      softLineBreak: true,
+      fitContent: true,
+      builders: <String, MarkdownElementBuilder>{
+        if (options.inlineMath || options.blockMath)
+          'latex': LatexElementBuilder(
+            textStyle: baseStyle?.copyWith(color: foreground),
+          ),
+      },
+      extensionSet: md.ExtensionSet(syntaxes, inlineSyntaxes),
+      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+        p: baseStyle?.copyWith(color: foreground),
+        h1: baseStyle?.copyWith(
+          color: foreground,
+          fontSize: (baseStyle.fontSize ?? 14) * 1.42,
+          fontWeight: FontWeight.w800,
+        ),
+        h2: baseStyle?.copyWith(
+          color: foreground,
+          fontSize: (baseStyle.fontSize ?? 14) * 1.28,
+          fontWeight: FontWeight.w800,
+        ),
+        h3: baseStyle?.copyWith(
+          color: foreground,
+          fontSize: (baseStyle.fontSize ?? 14) * 1.14,
+          fontWeight: FontWeight.w800,
+        ),
+        h4: baseStyle?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        h5: baseStyle?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        h6: baseStyle?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        em: baseStyle?.copyWith(
+          color: foreground,
+          fontStyle: FontStyle.italic,
+        ),
+        strong: baseStyle?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        del: baseStyle?.copyWith(
+          color: foreground,
+          decoration: TextDecoration.lineThrough,
+        ),
+        blockquote: baseStyle?.copyWith(
+          color: foreground.withValues(alpha: 0.86),
+          fontStyle: FontStyle.italic,
+        ),
+        code: codeStyle,
+        listBullet: baseStyle?.copyWith(color: foreground),
+        tableHead: baseStyle?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        tableBody: baseStyle?.copyWith(color: foreground),
+        blockSpacing: 10,
+        listIndent: 22,
+        codeblockPadding: const EdgeInsets.all(10),
+        codeblockDecoration: BoxDecoration(
+          color: foreground.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: foreground.withValues(alpha: 0.12)),
+        ),
+        blockquotePadding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+        blockquoteDecoration: BoxDecoration(
+          color: foreground.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: foreground.withValues(alpha: 0.34),
+              width: 3,
+            ),
+          ),
+        ),
+        horizontalRuleDecoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: foreground.withValues(alpha: 0.22),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarkdownRenderOptions {
+  const _MarkdownRenderOptions({
+    required this.inlineMath,
+    required this.blockMath,
+  });
+
+  final bool inlineMath;
+  final bool blockMath;
+}
+
 class _ThinkingBlock extends StatelessWidget {
   const _ThinkingBlock({
     required this.content,
     required this.foreground,
     required this.textStyle,
     required this.selectable,
+    required this.markdown,
+    required this.markdownOptions,
   });
 
   final String content;
   final Color foreground;
   final TextStyle? textStyle;
   final bool selectable;
+  final bool markdown;
+  final _MarkdownRenderOptions markdownOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -293,10 +605,13 @@ class _ThinkingBlock extends StatelessWidget {
             ],
           ),
           children: <Widget>[
-            _MessageText(
+            _MessageTextRenderer(
               content: content,
               selectable: selectable,
               style: textStyle,
+              foreground: foreground,
+              markdown: markdown,
+              markdownOptions: markdownOptions,
             ),
           ],
         ),
@@ -360,6 +675,62 @@ List<_ThinkingSegment> _parseThinkingSegments(String content) {
   return segments;
 }
 
+String _normalizeMathBlocks(String content, _MarkdownRenderOptions options) {
+  var normalized = content;
+
+  if (!options.blockMath) {
+    normalized = normalized
+        .replaceAllMapped(_displayParenBlockPattern, (match) {
+          return '${match.group(1)}${match.group(2)}${match.group(3)}';
+        })
+        .replaceAllMapped(_displayDollarBlockPattern, (match) {
+          return '${match.group(1)}${match.group(2)}${match.group(3)}';
+        });
+  }
+
+  if (!options.inlineMath) {
+    normalized = normalized.replaceAllMapped(_inlineParenPattern, (match) {
+      return '${match.group(1)}${match.group(2)}${match.group(3)}';
+    });
+    normalized = normalized.replaceAllMapped(_inlineDollarPattern, (match) {
+      return '${match.group(1)}${match.group(2)}${match.group(3)}';
+    });
+  }
+
+  if (!options.blockMath) {
+    return normalized;
+  }
+
+  return normalized
+      .replaceAllMapped(_displayBracketMultilinePattern, (match) {
+        final body = match.group(1)?.trim() ?? '';
+        return '\\[ $body \\]';
+      })
+      .replaceAllMapped(_displayDollarMultilinePattern, (match) {
+        final body = match.group(1)?.trim() ?? '';
+        return '\$\$\n$body\n\$\$';
+      });
+}
+
+final _displayBracketMultilinePattern = RegExp(
+  r'\\\[\s*\r?\n([\s\S]*?)\r?\n\s*\\\]',
+);
+final _displayDollarMultilinePattern = RegExp(
+  r'\$\$\s*\r?\n([\s\S]*?)\r?\n\s*\$\$',
+);
+final _displayParenBlockPattern = RegExp(
+  r'(\\\[)([\s\S]*?)(\\\])',
+);
+final _displayDollarBlockPattern = RegExp(
+  r'(\$\$)([\s\S]*?)(\$\$)',
+);
+final _inlineParenPattern = RegExp(
+  r'(\\\()([^\n]*?)(\\\))',
+);
+final _inlineDollarPattern = RegExp(
+  r'(?<!\$)(\$)([^\n$]+?)(\$)(?!\$)',
+);
+
 class _MessageAuthorAvatar extends StatelessWidget {
   const _MessageAuthorAvatar({
     required this.author,
@@ -383,20 +754,22 @@ class _MessageAuthorAvatar extends StatelessWidget {
 
     return Semantics(
       label: _authorLabel(author),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background,
-          shape: BoxShape.circle,
-        ),
-        child: SizedBox.square(
-          dimension: 34,
-          child: Center(
-            child: Text(
-              _avatarLabel(author),
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: foreground,
-                    fontWeight: FontWeight.w900,
-                  ),
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox.square(
+            dimension: 34,
+            child: Center(
+              child: Text(
+                _avatarLabel(author),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
             ),
           ),
         ),
@@ -442,9 +815,21 @@ class _BubbleStyle {
     ColorScheme colors, {
     required bool isUser,
     required bool isSystem,
+    required bool isError,
     required ChatMessageBackground background,
   }) {
     if (isSystem) {
+      if (!isError) {
+        return _BubbleStyle(
+          background: colors.secondaryContainer,
+          foreground: colors.onSecondaryContainer,
+          border: colors.secondary,
+          borderOpacity: 0.44,
+          shadowAlpha: 0.04,
+          intensity: LiquidGlassIntensity.subtle,
+        );
+      }
+
       return _BubbleStyle(
         background: colors.errorContainer,
         foreground: colors.onErrorContainer,

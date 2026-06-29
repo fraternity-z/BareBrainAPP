@@ -72,14 +72,6 @@ class _BareBrainAppState extends State<BareBrainApp> {
             appSettingsController: _appSettingsController,
             onTestNetworkProxyConnection:
                 ChatFeatureModule.testNetworkProxyConnection,
-            onTestVoiceService: (settings) {
-              return ChatFeatureModule.testVoiceService(
-                settings,
-                networkProxySettingsProvider: () {
-                  return _appSettingsController.settings.networkProxy;
-                },
-              );
-            },
             onTestOtaVersionCheck: (settings) {
               return ChatFeatureModule.testOtaVersionCheck(
                 settings,
@@ -120,12 +112,10 @@ class _BareBrainAppState extends State<BareBrainApp> {
   void _syncAppSettings({bool? persistStorage}) {
     final settings = _appSettingsController.settings;
     final shouldPersistStorage = persistStorage ?? !_isRestoringControllers;
-    _controller
-      ..updateStorageSettings(
-        settings.storage,
-        persistImmediately: shouldPersistStorage,
-      )
-      ..updateVoiceSettings(settings.voice);
+    _controller.updateStorageSettings(
+      settings.storage,
+      persistImmediately: shouldPersistStorage,
+    );
   }
 
   Future<void> _autoCheckOta() async {

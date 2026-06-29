@@ -1,11 +1,3 @@
-enum ChatVoiceProvider {
-  custom('HTTP 服务');
-
-  const ChatVoiceProvider(this.label);
-
-  final String label;
-}
-
 enum ChatNetworkProxyType {
   http('HTTP');
 
@@ -32,86 +24,6 @@ enum ChatStorageRetentionPolicy {
   const ChatStorageRetentionPolicy(this.label);
 
   final String label;
-}
-
-class ChatVoiceSettings {
-  const ChatVoiceSettings({
-    this.enabled = false,
-    this.provider = ChatVoiceProvider.custom,
-    this.endpoint = '',
-    this.speaker = '默认',
-    this.streaming = true,
-    this.timeout = const Duration(seconds: 8),
-  });
-
-  final bool enabled;
-  final ChatVoiceProvider provider;
-  final String endpoint;
-  final String speaker;
-  final bool streaming;
-  final Duration timeout;
-
-  String get summary {
-    if (!enabled) {
-      return '关闭';
-    }
-
-    return provider.label;
-  }
-
-  ChatVoiceSettings copyWith({
-    bool? enabled,
-    ChatVoiceProvider? provider,
-    String? endpoint,
-    String? speaker,
-    bool? streaming,
-    Duration? timeout,
-  }) {
-    return ChatVoiceSettings(
-      enabled: enabled ?? this.enabled,
-      provider: provider ?? this.provider,
-      endpoint: endpoint ?? this.endpoint,
-      speaker: speaker ?? this.speaker,
-      streaming: streaming ?? this.streaming,
-      timeout: _clampTimeout(timeout ?? this.timeout),
-    );
-  }
-
-  static Duration _clampTimeout(Duration value) {
-    if (value < const Duration(seconds: 1)) {
-      return const Duration(seconds: 1);
-    }
-
-    if (value > const Duration(seconds: 60)) {
-      return const Duration(seconds: 60);
-    }
-
-    return value;
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is ChatVoiceSettings &&
-            other.enabled == enabled &&
-            other.provider == provider &&
-            other.endpoint == endpoint &&
-            other.speaker == speaker &&
-            other.streaming == streaming &&
-            other.timeout == timeout;
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      enabled,
-      provider,
-      endpoint,
-      speaker,
-      streaming,
-      timeout,
-    );
-  }
 }
 
 class ChatNetworkProxySettings {
@@ -506,7 +418,6 @@ class ChatStorageSettings {
 
 class ChatAppSettings {
   const ChatAppSettings({
-    this.voice = const ChatVoiceSettings(),
     this.quickPhrases = const <ChatQuickPhrase>[],
     this.networkProxy = const ChatNetworkProxySettings(),
     this.worldBook = const ChatWorldBookSettings(),
@@ -514,7 +425,6 @@ class ChatAppSettings {
     this.storage = const ChatStorageSettings(),
   });
 
-  final ChatVoiceSettings voice;
   final List<ChatQuickPhrase> quickPhrases;
   final ChatNetworkProxySettings networkProxy;
   final ChatWorldBookSettings worldBook;
@@ -522,7 +432,6 @@ class ChatAppSettings {
   final ChatStorageSettings storage;
 
   ChatAppSettings copyWith({
-    ChatVoiceSettings? voice,
     List<ChatQuickPhrase>? quickPhrases,
     ChatNetworkProxySettings? networkProxy,
     ChatWorldBookSettings? worldBook,
@@ -530,7 +439,6 @@ class ChatAppSettings {
     ChatStorageSettings? storage,
   }) {
     return ChatAppSettings(
-      voice: voice ?? this.voice,
       quickPhrases:
           List<ChatQuickPhrase>.unmodifiable(quickPhrases ?? this.quickPhrases),
       networkProxy: networkProxy ?? this.networkProxy,
@@ -544,7 +452,6 @@ class ChatAppSettings {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is ChatAppSettings &&
-            other.voice == voice &&
             _listEquals(other.quickPhrases, quickPhrases) &&
             other.networkProxy == networkProxy &&
             other.worldBook == worldBook &&
@@ -555,7 +462,6 @@ class ChatAppSettings {
   @override
   int get hashCode {
     return Object.hash(
-      voice,
       Object.hashAll(quickPhrases),
       networkProxy,
       worldBook,

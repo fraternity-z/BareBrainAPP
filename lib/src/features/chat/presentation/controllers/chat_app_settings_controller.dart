@@ -55,10 +55,6 @@ class ChatAppSettingsController extends ChangeNotifier {
     _notify();
   }
 
-  void updateVoice(ChatVoiceSettings settings) {
-    update(_settings.copyWith(voice: settings));
-  }
-
   void updateQuickPhrases(List<ChatQuickPhrase> phrases) {
     update(_settings.copyWith(quickPhrases: phrases));
   }

@@ -21,7 +21,6 @@ class ChatAppSettingsCodec {
   static Map<String, dynamic> toJson(ChatAppSettings settings) {
     return <String, dynamic>{
       'version': 1,
-      'voice': _voiceToJson(settings.voice),
       'quickPhrases': settings.quickPhrases.map(_quickPhraseToJson).toList(),
       'networkProxy': _networkProxyToJson(settings.networkProxy),
       'worldBook': _worldBookToJson(settings.worldBook),
@@ -33,7 +32,6 @@ class ChatAppSettingsCodec {
   static ChatAppSettings fromJson(Map<String, dynamic> value) {
     const defaults = ChatAppSettings();
     return defaults.copyWith(
-      voice: _voiceFromJson(value['voice'], defaults.voice),
       quickPhrases: _listValue(value['quickPhrases'])
           .map(_quickPhraseFromJson)
           .whereType<ChatQuickPhrase>()
@@ -48,44 +46,6 @@ class ChatAppSettingsCodec {
         defaults.promptInjection,
       ),
       storage: _storageFromJson(value['storage'], defaults.storage),
-    );
-  }
-
-  static Map<String, dynamic> _voiceToJson(ChatVoiceSettings settings) {
-    return <String, dynamic>{
-      'enabled': settings.enabled,
-      'provider': settings.provider.name,
-      'endpoint': settings.endpoint,
-      'speaker': settings.speaker,
-      'streaming': settings.streaming,
-      'timeoutMs': settings.timeout.inMilliseconds,
-    };
-  }
-
-  static ChatVoiceSettings _voiceFromJson(
-    Object? source,
-    ChatVoiceSettings fallback,
-  ) {
-    if (source is! Map<String, dynamic>) {
-      return fallback;
-    }
-
-    return fallback.copyWith(
-      enabled: _boolValue(source['enabled'], fallback.enabled),
-      provider: _enumValue(
-        ChatVoiceProvider.values,
-        source['provider'],
-        fallback.provider,
-      ),
-      endpoint: _trimmedStringValue(source['endpoint'], fallback.endpoint),
-      speaker: _nonBlankStringValue(source['speaker'], fallback.speaker),
-      streaming: _boolValue(source['streaming'], fallback.streaming),
-      timeout: Duration(
-        milliseconds: _intValue(
-          source['timeoutMs'],
-          fallback.timeout.inMilliseconds,
-        ),
-      ),
     );
   }
 

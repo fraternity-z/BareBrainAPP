@@ -62,7 +62,8 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 key: const Key('display_theme_preset_row'),
                 icon: Icons.palette_outlined,
                 title: '主题设置',
-                value: _settings.themePreset.label,
+                value:
+                    '${_settings.colorMode.label} · ${_settings.themePreset.label}',
                 onTap: _openThemeSettings,
               ),
               SettingsRow(
@@ -104,18 +105,11 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 onTap: () => unawaited(_openMessageBackground()),
               ),
               SettingsRow(
-                key: const Key('display_app_font_row'),
+                key: const Key('display_font_row'),
                 icon: Icons.text_fields,
-                title: '应用字体',
-                value: _settings.appFont.label,
-                onTap: () => unawaited(_openAppFont()),
-              ),
-              SettingsRow(
-                key: const Key('display_code_font_row'),
-                icon: Icons.code,
-                title: '代码字体',
-                value: _settings.codeFont.label,
-                onTap: () => unawaited(_openCodeFont()),
+                title: '字体',
+                value: _fontSummary(),
+                onTap: _openFontSettings,
               ),
               SettingsRow(
                 key: const Key('display_message_font_scale_row'),
@@ -130,13 +124,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 title: '自动回到底部延迟',
                 value: _settings.autoScrollDelayLabel,
                 onTap: () => unawaited(_openAutoScrollDelay()),
-              ),
-              SettingsRow(
-                key: const Key('display_background_mask_row'),
-                icon: Icons.image_outlined,
-                title: '聊天背景遮罩透明度',
-                value: _settings.backgroundMaskOpacityLabel,
-                onTap: () => unawaited(_openBackgroundMaskOpacity()),
               ),
             ],
           ),
@@ -158,40 +145,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       }).toList(),
       onSelected: (background) {
         _update(_settings.copyWith(messageBackground: background));
-      },
-    );
-  }
-
-  Future<void> _openAppFont() {
-    return _showChoiceSheet<ChatAppFont>(
-      title: '应用字体',
-      selected: _settings.appFont,
-      items: ChatAppFont.values.map((font) {
-        return _ChoiceItem<ChatAppFont>(
-          key: 'app_font_${font.name}',
-          label: font.label,
-          value: font,
-        );
-      }).toList(),
-      onSelected: (font) {
-        _update(_settings.copyWith(appFont: font));
-      },
-    );
-  }
-
-  Future<void> _openCodeFont() {
-    return _showChoiceSheet<ChatCodeFont>(
-      title: '代码字体',
-      selected: _settings.codeFont,
-      items: ChatCodeFont.values.map((font) {
-        return _ChoiceItem<ChatCodeFont>(
-          key: 'code_font_${font.name}',
-          label: font.label,
-          value: font,
-        );
-      }).toList(),
-      onSelected: (font) {
-        _update(_settings.copyWith(codeFont: font));
       },
     );
   }
@@ -248,29 +201,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
     );
   }
 
-  Future<void> _openBackgroundMaskOpacity() {
-    return _showSettingsSliderSheet(
-      context: context,
-      title: '聊天背景遮罩透明度',
-      value: _settings.backgroundMaskOpacity * 100,
-      min: 0,
-      max: 100,
-      divisions: 100,
-      sliderKey: const Key('background_mask_opacity_slider'),
-      valueLabelBuilder: _formatPercentSliderValue,
-      tickLabels: const <_SliderTickLabel>[
-        _SliderTickLabel(0, '0%'),
-        _SliderTickLabel(25, '25%'),
-        _SliderTickLabel(50, '50%'),
-        _SliderTickLabel(75, '75%'),
-        _SliderTickLabel(100, '100%'),
-      ],
-      onChanged: (value) {
-        _update(_settings.copyWith(backgroundMaskOpacity: value / 100));
-      },
-    );
-  }
-
   void _openThemeSettings() {
     unawaited(
       Navigator.of(context).push<void>(
@@ -315,6 +245,19 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (context) => BehaviorDisplaySettingsPage(
+            settings: _settings,
+            onChanged: _update,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openFontSettings() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => FontDisplaySettingsPage(
             settings: _settings,
             onChanged: _update,
           ),
@@ -391,6 +334,10 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
     return '$enabledCount 项启用';
   }
 
+  String _fontSummary() {
+    return '${_settings.appFont.label} · ${_settings.codeFont.label}';
+  }
+
   void _update(ChatDisplaySettings settings) {
     setState(() => _settings = settings);
     widget.onChanged?.call(settings);
@@ -459,30 +406,18 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
             title: '主题',
             children: <Widget>[
               SettingsRow(
-                key: const Key('theme_preset_row'),
-                icon: Icons.palette_outlined,
-                title: '主题预设',
-                value: _settings.themePreset.label,
-                onTap: () => unawaited(_openThemePreset()),
-              ),
-              SettingsRow(
                 key: const Key('theme_color_mode_row'),
                 icon: Icons.light_mode_outlined,
                 title: '颜色模式',
                 value: _settings.colorMode.label,
                 onTap: () => unawaited(_openColorMode()),
               ),
-            ],
-          ),
-          SettingsSection(
-            title: '背景',
-            children: <Widget>[
               SettingsRow(
-                key: const Key('theme_background_mask_row'),
-                icon: Icons.image_outlined,
-                title: '聊天背景遮罩透明度',
-                value: _settings.backgroundMaskOpacityLabel,
-                onTap: () => unawaited(_openBackgroundMaskOpacity()),
+                key: const Key('theme_preset_row'),
+                icon: Icons.palette_outlined,
+                title: '主题预设',
+                value: _settings.themePreset.label,
+                onTap: () => unawaited(_openThemePreset()),
               ),
             ],
           ),
@@ -525,25 +460,152 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
     );
   }
 
-  Future<void> _openBackgroundMaskOpacity() {
-    return _showSettingsSliderSheet(
+  Future<void> _showChoiceSheet<T>({
+    required String title,
+    required T selected,
+    required List<_ChoiceItem<T>> items,
+    required ValueChanged<T> onSelected,
+  }) async {
+    final next = await showModalBottomSheet<T>(
       context: context,
-      title: '聊天背景遮罩透明度',
-      value: _settings.backgroundMaskOpacity * 100,
-      min: 0,
-      max: 100,
-      divisions: 100,
-      sliderKey: const Key('theme_background_mask_opacity_slider'),
-      valueLabelBuilder: _formatPercentSliderValue,
-      tickLabels: const <_SliderTickLabel>[
-        _SliderTickLabel(0, '0%'),
-        _SliderTickLabel(25, '25%'),
-        _SliderTickLabel(50, '50%'),
-        _SliderTickLabel(75, '75%'),
-        _SliderTickLabel(100, '100%'),
+      showDragHandle: true,
+      builder: (context) {
+        return _ChoiceSheet<T>(
+          title: title,
+          selected: selected,
+          items: items,
+        );
+      },
+    );
+
+    if (next == null || !mounted) {
+      return;
+    }
+
+    onSelected(next);
+  }
+
+  void _update(ChatDisplaySettings settings) {
+    setState(() => _settings = settings);
+    widget.onChanged?.call(settings);
+  }
+
+  void _resetSettings() {
+    const defaults = ChatDisplaySettings();
+    _update(
+      _settings.copyWith(
+        colorMode: defaults.colorMode,
+        themePreset: defaults.themePreset,
+      ),
+    );
+  }
+}
+
+class FontDisplaySettingsPage extends StatefulWidget {
+  const FontDisplaySettingsPage({
+    this.settings = const ChatDisplaySettings(),
+    this.onChanged,
+    super.key,
+  });
+
+  final ChatDisplaySettings settings;
+  final ValueChanged<ChatDisplaySettings>? onChanged;
+
+  @override
+  State<FontDisplaySettingsPage> createState() =>
+      _FontDisplaySettingsPageState();
+}
+
+class _FontDisplaySettingsPageState extends State<FontDisplaySettingsPage> {
+  late ChatDisplaySettings _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+  }
+
+  @override
+  void didUpdateWidget(covariant FontDisplaySettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _settings = widget.settings;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsScreenFrame(
+      title: '字体',
+      actions: <Widget>[
+        IconButton(
+          key: const Key('font_reset_button'),
+          tooltip: '恢复默认',
+          onPressed: _resetSettings,
+          icon: const Icon(Icons.restart_alt, size: 24),
+        ),
       ],
-      onChanged: (value) {
-        _update(_settings.copyWith(backgroundMaskOpacity: value / 100));
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.only(bottom: 32),
+        children: <Widget>[
+          SettingsSection(
+            title: '字体',
+            topPadding: 18,
+            children: <Widget>[
+              SettingsRow(
+                key: const Key('font_app_font_row'),
+                icon: Icons.text_fields,
+                title: '应用字体',
+                value: _settings.appFont.label,
+                onTap: () => unawaited(_openAppFont()),
+              ),
+              SettingsRow(
+                key: const Key('font_code_font_row'),
+                icon: Icons.code,
+                title: '代码字体',
+                value: _settings.codeFont.label,
+                onTap: () => unawaited(_openCodeFont()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openAppFont() {
+    return _showChoiceSheet<ChatAppFont>(
+      title: '应用字体',
+      selected: _settings.appFont,
+      items: ChatAppFont.values.map((font) {
+        return _ChoiceItem<ChatAppFont>(
+          key: 'app_font_${font.name}',
+          label: font.label,
+          value: font,
+        );
+      }).toList(),
+      onSelected: (font) {
+        _update(_settings.copyWith(appFont: font));
+      },
+    );
+  }
+
+  Future<void> _openCodeFont() {
+    return _showChoiceSheet<ChatCodeFont>(
+      title: '代码字体',
+      selected: _settings.codeFont,
+      items: ChatCodeFont.values.map((font) {
+        return _ChoiceItem<ChatCodeFont>(
+          key: 'code_font_${font.name}',
+          label: font.label,
+          value: font,
+        );
+      }).toList(),
+      onSelected: (font) {
+        _update(_settings.copyWith(codeFont: font));
       },
     );
   }
@@ -582,9 +644,8 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
     const defaults = ChatDisplaySettings();
     _update(
       _settings.copyWith(
-        colorMode: defaults.colorMode,
-        themePreset: defaults.themePreset,
-        backgroundMaskOpacity: defaults.backgroundMaskOpacity,
+        appFont: defaults.appFont,
+        codeFont: defaults.codeFont,
       ),
     );
   }
@@ -1128,7 +1189,6 @@ class _ThemePreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final previewSettings = settings.copyWith(showMessageActions: false);
-    final maskAlpha = settings.backgroundMaskOpacity;
     return DecoratedBox(
       decoration: settingsCardDecoration(context),
       child: Padding(
@@ -1160,7 +1220,7 @@ class _ThemePreviewCard extends StatelessWidget {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
-                  colors.surfaceContainerLow.withValues(alpha: maskAlpha),
+                  colors.surfaceContainerLow,
                   colors.surfaceContainerHigh.withValues(alpha: 0.32),
                 ),
                 borderRadius: BorderRadius.circular(settingsCardRadius),

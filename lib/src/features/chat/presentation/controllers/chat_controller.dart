@@ -12,10 +12,11 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_session_snapshot.dart';
 import '../../domain/repositories/chat_conversation_catalog_store.dart';
 import '../../domain/repositories/chat_session_store.dart';
-import '../../domain/repositories/chat_voice_output.dart';
 import '../../domain/services/chat_conversation_title_builder.dart';
 import '../../domain/services/chat_connection_settings_parser.dart';
 import '../../domain/services/chat_route_id_builder.dart';
+import '../../domain/services/bare_brain_board_command_parser.dart';
+import '../../domain/usecases/run_bare_brain_board_command.dart';
 import '../../domain/usecases/check_chat_connection.dart';
 import '../../domain/usecases/send_chat_message.dart';
 import '../../data/models/chat_conversation_catalog_codec.dart';
@@ -25,16 +26,16 @@ class ChatController extends ChangeNotifier {
   ChatController({
     required SendChatMessage sendChatMessage,
     required ChatConnectionSettings initialSettings,
+    RunBareBrainBoardCommand? runBoardCommand,
     CheckChatConnection? checkConnection,
     ChatSessionStore? sessionStore,
     ChatSessionStoreFactory? sessionStoreFactory,
     ChatConversationCatalogStore? catalogStore,
     ChatStorageSettings storageSettings = const ChatStorageSettings(),
-    ChatVoiceSettings voiceSettings = const ChatVoiceSettings(),
-    ChatVoiceOutput? voiceOutput,
     String conversationId = 'default',
     String conversationTitle = 'BareBrain',
   })  : _sendChatMessage = sendChatMessage,
+        _runBoardCommand = runBoardCommand,
         _checkConnection = checkConnection,
         _settings = initialSettings,
         _fixedSessionStore = sessionStore,
@@ -43,20 +44,17 @@ class ChatController extends ChangeNotifier {
             sessionStore,
         _catalogStore = catalogStore,
         _storageSettings = storageSettings,
-        _voiceSettings = voiceSettings,
-        _voiceOutput = voiceOutput,
         _conversationId = conversationId,
         _conversationTitle = conversationTitle;
 
   final SendChatMessage _sendChatMessage;
+  final RunBareBrainBoardCommand? _runBoardCommand;
   final CheckChatConnection? _checkConnection;
   final ChatSessionStore? _fixedSessionStore;
   final ChatSessionStoreFactory? _sessionStoreFactory;
   final ChatSessionStore? _sessionStore;
   final ChatConversationCatalogStore? _catalogStore;
   ChatStorageSettings _storageSettings;
-  ChatVoiceSettings _voiceSettings;
-  final ChatVoiceOutput? _voiceOutput;
   String _conversationId;
   String _conversationTitle;
   ChatConnectionSettings _settings;
@@ -220,10 +218,6 @@ class ChatController extends ChangeNotifier {
     unawaited(_saveCatalogSummary());
   }
 
-  void updateVoiceSettings(ChatVoiceSettings settings) {
-    _voiceSettings = settings;
-  }
-
   Future<void> createConversation({String? title}) async {
     await _saveSnapshotImmediately();
     await _saveCatalogSummary();
@@ -370,6 +364,114 @@ class ChatController extends ChangeNotifier {
     );
   }
 
+  Future<bool> runBoardCommand(String content, {String? displayContent}) async {
+    if (_isSending) {
+      return false;
+    }
+
+    final runBoardCommand = _runBoardCommand;
+    if (runBoardCommand == null) {
+      return false;
+    }
+
+    final normalized = content.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    if (BareBrainBoardCommandParser.parse(normalized) == null) {
+      return false;
+    }
+    final normalizedDisplayContent = displayContent?.trim();
+    final visibleContent = normalizedDisplayContent?.isNotEmpty == true
+        ? normalizedDisplayContent!
+        : normalized;
+
+    _cancelDraftSnapshotSave();
+    _isSending = true;
+    _errorMessage = null;
+    _draft = '';
+    _messages.add(
+      ChatMessage(
+        id: _newId('user'),
+        author: ChatMessageAuthor.user,
+        content: visibleContent,
+        createdAt: DateTime.now(),
+        isPending: true,
+      ),
+    );
+    final userMessageIndex = _messages.length - 1;
+    _notify();
+    await _saveSnapshot();
+    await _saveCatalogSummary();
+
+    try {
+      final result = await runBoardCommand(normalized, _settings);
+      if (result == null) {
+        _messages.removeAt(userMessageIndex);
+        await _saveSnapshot();
+        await _saveCatalogSummary();
+        return false;
+      }
+
+      _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
+        isPending: false,
+      );
+      if (result.isError) {
+        _errorMessage = result.message;
+      }
+      _messages.add(
+        ChatMessage(
+          id: _newId('system'),
+          author: ChatMessageAuthor.system,
+          content: result.message,
+          createdAt: DateTime.now(),
+          error: result.isError ? result.message : null,
+        ),
+      );
+      await _saveSnapshot();
+      await _saveCatalogSummary();
+      return true;
+    } on ChatException catch (error) {
+      _errorMessage = error.message;
+      _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
+        isPending: false,
+      );
+      _messages.add(
+        ChatMessage(
+          id: _newId('system'),
+          author: ChatMessageAuthor.system,
+          content: error.message,
+          createdAt: DateTime.now(),
+          error: error.message,
+        ),
+      );
+      await _saveSnapshot();
+      await _saveCatalogSummary();
+      return true;
+    } catch (error) {
+      _errorMessage = '板子设置执行失败：$error';
+      _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
+        isPending: false,
+      );
+      _messages.add(
+        ChatMessage(
+          id: _newId('system'),
+          author: ChatMessageAuthor.system,
+          content: _errorMessage!,
+          createdAt: DateTime.now(),
+          error: _errorMessage,
+        ),
+      );
+      await _saveSnapshot();
+      await _saveCatalogSummary();
+      return true;
+    } finally {
+      _isSending = false;
+      _notify();
+    }
+  }
+
   void updateDraft(String draft) {
     if (draft == _draft) {
       return;
@@ -442,6 +544,17 @@ class ChatController extends ChangeNotifier {
         isPending: true,
       );
     }
+    final assistantMessageIndex = _messages.length;
+    final assistantMessageId = _newId('assistant');
+    _messages.add(
+      ChatMessage(
+        id: assistantMessageId,
+        author: ChatMessageAuthor.assistant,
+        content: '',
+        createdAt: DateTime.now(),
+        isPending: true,
+      ),
+    );
     _notify();
     await _saveSnapshot();
     await _saveCatalogSummary();
@@ -455,22 +568,20 @@ class ChatController extends ChangeNotifier {
       _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
         isPending: false,
       );
-      _messages.add(
-        ChatMessage(
-          id: _newId('assistant'),
-          author: ChatMessageAuthor.assistant,
-          content: response,
-          createdAt: DateTime.now(),
-        ),
+      _messages[assistantMessageIndex] =
+          _messages[assistantMessageIndex].copyWith(
+        content: response,
+        createdAt: DateTime.now(),
+        isPending: false,
       );
       await _saveSnapshot();
       await _saveCatalogSummary();
-      unawaited(_speakAssistantResponse(response));
     } on ChatException catch (error) {
       _errorMessage = error.message;
       _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
         isPending: false,
       );
+      _removePendingAssistantMessage(assistantMessageIndex, assistantMessageId);
       _messages.add(
         ChatMessage(
           id: _newId('system'),
@@ -487,6 +598,7 @@ class ChatController extends ChangeNotifier {
       _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
         isPending: false,
       );
+      _removePendingAssistantMessage(assistantMessageIndex, assistantMessageId);
       _messages.add(
         ChatMessage(
           id: _newId('system'),
@@ -515,6 +627,19 @@ class ChatController extends ChangeNotifier {
 
   String _newId(String prefix) {
     return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  void _removePendingAssistantMessage(int index, String id) {
+    if (index < 0 || index >= _messages.length) {
+      return;
+    }
+
+    final message = _messages[index];
+    if (message.id == id &&
+        message.author == ChatMessageAuthor.assistant &&
+        message.isPending) {
+      _messages.removeAt(index);
+    }
   }
 
   Future<void> _saveSnapshot() {
@@ -653,16 +778,16 @@ class ChatController extends ChangeNotifier {
 
     _settings = snapshot.settings;
     _draft = _storageSettings.saveDrafts ? snapshot.draft : '';
-    _messages
-      ..clear()
-      ..addAll(
-        snapshot.messages.map((message) {
-          if (!message.isPending) {
-            return message;
-          }
-          return message.copyWith(isPending: false);
-        }),
+    _messages.clear();
+    for (final message in snapshot.messages) {
+      if (message.isPending && message.author == ChatMessageAuthor.assistant) {
+        continue;
+      }
+
+      _messages.add(
+        message.isPending ? message.copyWith(isPending: false) : message,
       );
+    }
   }
 
   ChatSessionStore? _currentSessionStore() {
@@ -699,6 +824,11 @@ class ChatController extends ChangeNotifier {
     for (var index = _messages.length - 2; index >= 0; index--) {
       final message = _messages[index];
       if (message.author == ChatMessageAuthor.user) {
+        if (BareBrainBoardCommandParser.parse(message.content) != null ||
+            message.content.trim().startsWith('板子设置：')) {
+          return null;
+        }
+
         return index;
       }
       if (message.author == ChatMessageAuthor.assistant) {
@@ -730,7 +860,12 @@ class ChatController extends ChangeNotifier {
       return '';
     }
 
-    final normalized = _messages.last.content.trim().replaceAll(
+    final last = _messages.last;
+    if (last.author == ChatMessageAuthor.assistant && last.isPending) {
+      return '正在思考...';
+    }
+
+    final normalized = last.content.trim().replaceAll(
           RegExp(r'\s+'),
           ' ',
         );
@@ -809,27 +944,6 @@ class ChatController extends ChangeNotifier {
       ChatStorageRetentionPolicy.ninetyDays =>
         DateTime.now().subtract(const Duration(days: 90)),
     };
-  }
-
-  Future<void> _speakAssistantResponse(String response) async {
-    final voiceOutput = _voiceOutput;
-    if (voiceOutput == null ||
-        !_voiceSettings.enabled ||
-        response.trim().isEmpty) {
-      return;
-    }
-
-    try {
-      await voiceOutput.speak(response, _voiceSettings);
-    } on ChatException catch (error) {
-      _errorMessage = error.message.startsWith('语音服务')
-          ? error.message
-          : '语音服务失败：${error.message}';
-      _notify();
-    } catch (error) {
-      _errorMessage = '语音服务失败：$error';
-      _notify();
-    }
   }
 
   void _notify() {

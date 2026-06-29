@@ -257,70 +257,84 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = _SettingsPalette.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 70),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final valueMaxWidth = math.min(
-                  constraints.maxWidth * 0.36,
-                  220.0,
-                );
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      label: title,
+      value: value,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 70),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final valueMaxWidth = math.min(
+                      constraints.maxWidth * 0.36,
+                      220.0,
+                    );
 
-                return Row(
-                  children: <Widget>[
-                    _SettingsIconBox(
-                      icon: icon,
-                      iconColor: iconColor ?? palette.textStrong,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                    return Row(
+                      children: <Widget>[
+                        _SettingsIconBox(
+                          icon: icon,
+                          iconColor: iconColor ?? palette.textStrong,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
                                   color: palette.textStrong,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0,
                                 ),
-                      ),
-                    ),
-                    if (value != null) ...<Widget>[
-                      const SizedBox(width: 12),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: valueMaxWidth),
-                        child: Text(
-                          value!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.right,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          ),
+                        ),
+                        if (value != null) ...<Widget>[
+                          const SizedBox(width: 12),
+                          ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxWidth: valueMaxWidth),
+                            child: Text(
+                              value!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     color: palette.textSoft,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0,
                                   ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 24,
+                          color: palette.textSoft,
                         ),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 24,
-                      color: palette.textSoft,
-                    ),
-                  ],
-                );
-              },
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -348,56 +362,71 @@ class SettingsSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = _SettingsPalette.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onChanged(!value),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 70),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
-            child: Row(
-              children: <Widget>[
-                _SettingsIconBox(icon: icon),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
+    void toggle() => onChanged(!value);
+
+    return Semantics(
+      container: true,
+      toggled: value,
+      label: title,
+      value: value ? '开启' : '关闭',
+      onTap: toggle,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: toggle,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 70),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
+                child: Row(
+                  children: <Widget>[
+                    _SettingsIconBox(icon: icon),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
                                   color: palette.textStrong,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0,
                                 ),
-                      ),
-                      if (subtitle != null) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          ),
+                          if (subtitle != null) ...<Widget>[
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     color: palette.textSoft,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0,
                                   ),
-                        ),
-                      ],
-                    ],
-                  ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Switch(value: value, onChanged: onChanged),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Switch(value: value, onChanged: onChanged),
-              ],
+              ),
             ),
           ),
         ),
@@ -418,11 +447,16 @@ class SettingsFormPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: settingsCardDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(settingsCardRadius),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          ),
         ),
       ),
     );

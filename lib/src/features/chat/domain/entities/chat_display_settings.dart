@@ -80,9 +80,7 @@ class ChatDisplaySettings {
     this.codeFont = ChatCodeFont.system,
     this.messageFontScale = 1.10,
     this.autoScrollDelay = const Duration(seconds: 8),
-    this.backgroundMaskOpacity = 1.0,
-  })  : assert(messageFontScale >= 0.9 && messageFontScale <= 1.4),
-        assert(backgroundMaskOpacity >= 0 && backgroundMaskOpacity <= 1);
+  }) : assert(messageFontScale >= 0.9 && messageFontScale <= 1.4);
 
   final ChatColorMode colorMode;
   final ChatThemePreset themePreset;
@@ -112,7 +110,6 @@ class ChatDisplaySettings {
   final ChatCodeFont codeFont;
   final double messageFontScale;
   final Duration autoScrollDelay;
-  final double backgroundMaskOpacity;
 
   ChatDisplaySettings copyWith({
     ChatColorMode? colorMode,
@@ -143,7 +140,6 @@ class ChatDisplaySettings {
     ChatCodeFont? codeFont,
     double? messageFontScale,
     Duration? autoScrollDelay,
-    double? backgroundMaskOpacity,
   }) {
     return ChatDisplaySettings(
       colorMode: colorMode ?? this.colorMode,
@@ -191,9 +187,6 @@ class ChatDisplaySettings {
         messageFontScale ?? this.messageFontScale,
       ),
       autoScrollDelay: _clampDelay(autoScrollDelay ?? this.autoScrollDelay),
-      backgroundMaskOpacity: _clampOpacity(
-        backgroundMaskOpacity ?? this.backgroundMaskOpacity,
-      ),
     );
   }
 
@@ -209,16 +202,8 @@ class ChatDisplaySettings {
     return '${autoScrollDelay.inSeconds}s';
   }
 
-  String get backgroundMaskOpacityLabel {
-    return '${(backgroundMaskOpacity * 100).round()}%';
-  }
-
   static double _clampFontScale(double value) {
     return value.clamp(0.9, 1.4).toDouble();
-  }
-
-  static double _clampOpacity(double value) {
-    return value.clamp(0.0, 1.0).toDouble();
   }
 
   static Duration _clampDelay(Duration value) {
@@ -269,8 +254,7 @@ class ChatDisplaySettings {
             other.appFont == appFont &&
             other.codeFont == codeFont &&
             other.messageFontScale == messageFontScale &&
-            other.autoScrollDelay == autoScrollDelay &&
-            other.backgroundMaskOpacity == backgroundMaskOpacity;
+            other.autoScrollDelay == autoScrollDelay;
   }
 
   @override
@@ -304,7 +288,6 @@ class ChatDisplaySettings {
       codeFont,
       messageFontScale,
       autoScrollDelay,
-      backgroundMaskOpacity,
     ]);
   }
 }

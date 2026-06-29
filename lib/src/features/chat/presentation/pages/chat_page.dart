@@ -13,7 +13,6 @@ import '../controllers/chat_controller.dart';
 import '../controllers/chat_display_settings_controller.dart';
 import '../settings/network_proxy_page.dart';
 import '../settings/settings_page.dart';
-import '../settings/voice_service_page.dart';
 import '../widgets/liquid_glass.dart';
 import '../widgets/message_bubble.dart';
 
@@ -26,7 +25,6 @@ class ChatPage extends StatefulWidget {
     this.onDisplaySettingsChanged,
     this.appSettingsController,
     this.onTestNetworkProxyConnection,
-    this.onTestVoiceService,
     this.onTestOtaVersionCheck,
     super.key,
   });
@@ -38,7 +36,6 @@ class ChatPage extends StatefulWidget {
   final ValueChanged<ChatDisplaySettings>? onDisplaySettingsChanged;
   final ChatAppSettingsController? appSettingsController;
   final TestNetworkProxyConnection? onTestNetworkProxyConnection;
-  final TestVoiceService? onTestVoiceService;
   final TestOtaVersionCheck? onTestOtaVersionCheck;
 
   @override
@@ -92,7 +89,6 @@ class _ChatPageState extends State<ChatPage> {
                   key: const Key('chat_surface'),
                   baseColor: _chatSurfaceColor(
                     Theme.of(context).colorScheme,
-                    widget.displaySettings,
                   ),
                   child: Row(
                     children: <Widget>[
@@ -331,9 +327,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    widget.controller
-      ..updateStorageSettings(settings.storage)
-      ..updateVoiceSettings(settings.voice);
+    widget.controller.updateStorageSettings(settings.storage);
   }
 
   void _openSettings() {
@@ -351,7 +345,6 @@ class _ChatPageState extends State<ChatPage> {
               appSettingsController: widget.appSettingsController,
               onTestConnection: widget.controller.testConnection,
               onTestNetworkProxyConnection: widget.onTestNetworkProxyConnection,
-              onTestVoiceService: widget.onTestVoiceService,
               onTestOtaVersionCheck: widget.onTestOtaVersionCheck,
               loadStorageUsage: widget.controller.loadStorageUsage,
             );
@@ -409,7 +402,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    _insertComposerText(command.content);
+    await _runShortcutBoardCommand(command);
   }
 
   void _insertComposerText(String content) {
@@ -431,6 +424,78 @@ class _ChatPageState extends State<ChatPage> {
       selection: TextSelection.collapsed(offset: offset),
     );
     widget.controller.updateDraft(next);
+  }
+
+  Future<void> _runShortcutBoardCommand(_ShortcutCommand command) async {
+    _syncRuntimeSettings();
+    var source = command.content;
+    final form = command.boardForm;
+    if (form != null) {
+      final submitted = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) {
+          return _BoardCommandFormSheet(
+            title: command.title,
+            form: form,
+          );
+        },
+      );
+      if (submitted == null || !mounted) {
+        return;
+      }
+      source = submitted;
+    } else if (command.requiresConfirmation) {
+      final confirmed = await _confirmBoardCommand(command);
+      if (!confirmed || !mounted) {
+        return;
+      }
+    }
+
+    if (widget.displaySettings.hapticFeedback) {
+      unawaited(HapticFeedback.selectionClick());
+    }
+    final handled = await widget.controller.runBoardCommand(
+      source,
+      displayContent: '板子设置：${command.title}',
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!handled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('当前无法执行板子设置')),
+      );
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleScrollToBottom(widget.displaySettings.autoScrollDelay);
+    });
+  }
+
+  Future<bool> _confirmBoardCommand(_ShortcutCommand command) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(command.title),
+          content: Text(command.description),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('确认执行'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed == true;
   }
 
   String _buildTransportContent(String source, ChatAppSettings settings) {
@@ -511,15 +576,10 @@ TextStyle? _scaledTextStyle(TextStyle? source, double scale) {
   return source.copyWith(fontSize: (source.fontSize ?? 14) * scale);
 }
 
-Color _chatSurfaceColor(
-  ColorScheme colors,
-  ChatDisplaySettings displaySettings,
-) {
+Color _chatSurfaceColor(ColorScheme colors) {
   final base = colors.surfaceContainerHigh.withValues(alpha: 0.32);
   return Color.alphaBlend(
-    colors.surfaceContainerLow.withValues(
-      alpha: displaySettings.backgroundMaskOpacity,
-    ),
+    colors.surfaceContainerLow,
     base,
   );
 }
@@ -536,17 +596,13 @@ class _StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final message =
-        controller.isSending ? '正在等待 BareBrain 回复' : controller.errorMessage;
+    final message = controller.errorMessage;
     if (message == null || message.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final isError = !controller.isSending;
-    final background =
-        isError ? colors.errorContainer : colors.secondaryContainer;
-    final foreground =
-        isError ? colors.onErrorContainer : colors.onSecondaryContainer;
+    final background = colors.errorContainer;
+    final foreground = colors.onErrorContainer;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       child: DecoratedBox(
@@ -554,7 +610,7 @@ class _StatusBanner extends StatelessWidget {
           color: background,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isError ? colors.error : colors.outlineVariant,
+            color: colors.error,
             width: 0.7,
           ),
         ),
@@ -563,7 +619,7 @@ class _StatusBanner extends StatelessWidget {
           child: Row(
             children: <Widget>[
               Icon(
-                isError ? Icons.error_outline : Icons.hourglass_empty,
+                Icons.error_outline,
                 size: 18,
                 color: foreground,
               ),
@@ -579,7 +635,7 @@ class _StatusBanner extends StatelessWidget {
                       ),
                 ),
               ),
-              if (isError && controller.canRetryLastMessage) ...<Widget>[
+              if (controller.canRetryLastMessage) ...<Widget>[
                 const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: onRetry,
@@ -1872,38 +1928,471 @@ class _ShortcutCommand {
     required this.description,
     required this.content,
     required this.icon,
+    this.boardForm,
+    this.requiresConfirmation = false,
   });
 
   final String title;
   final String description;
   final String content;
   final IconData icon;
+  final _BoardCommandForm? boardForm;
+  final bool requiresConfirmation;
+}
+
+class _BoardCommandForm {
+  const _BoardCommandForm({
+    required this.commandName,
+    required this.fields,
+  });
+
+  final String commandName;
+  final List<_BoardCommandField> fields;
+
+  String buildCommand(Map<String, String> values) {
+    final args = fields
+        .map((field) => _quoteBoardCommandArgument(values[field.id] ?? ''))
+        .join(' ');
+    return args.isEmpty ? commandName : '$commandName $args';
+  }
+}
+
+class _BoardCommandField {
+  const _BoardCommandField({
+    required this.id,
+    required this.label,
+    this.hintText,
+    this.obscureText = false,
+    this.keyboardType,
+    this.options = const <_BoardCommandOption>[],
+    this.initialValue,
+  });
+
+  final String id;
+  final String label;
+  final String? hintText;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final List<_BoardCommandOption> options;
+  final String? initialValue;
+}
+
+class _BoardCommandOption {
+  const _BoardCommandOption({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+}
+
+class _BoardCommandFormSheet extends StatefulWidget {
+  const _BoardCommandFormSheet({
+    required this.title,
+    required this.form,
+  });
+
+  final String title;
+  final _BoardCommandForm form;
+
+  @override
+  State<_BoardCommandFormSheet> createState() => _BoardCommandFormSheetState();
+}
+
+class _BoardCommandFormSheetState extends State<_BoardCommandFormSheet> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final Map<String, TextEditingController> _controllers =
+      <String, TextEditingController>{};
+  late Map<String, String> _selectedValues;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedValues = <String, String>{};
+    for (final field in widget.form.fields) {
+      if (field.options.isEmpty) {
+        _controllers[field.id] = TextEditingController(
+          text: field.initialValue ?? '',
+        );
+      } else {
+        _selectedValues[field.id] =
+            field.initialValue ?? field.options.first.value;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '将通过 BareBrain admin 接口写入配置，敏感内容不会显示在聊天记录中。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 18),
+                for (final field in widget.form.fields) ...<Widget>[
+                  _buildField(field),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 4),
+                FilledButton.icon(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('保存到板子'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(_BoardCommandField field) {
+    if (field.options.isNotEmpty) {
+      return DropdownButtonFormField<String>(
+        initialValue: _selectedValues[field.id],
+        decoration: InputDecoration(
+          labelText: field.label,
+          border: const OutlineInputBorder(),
+        ),
+        items: field.options.map((option) {
+          return DropdownMenuItem<String>(
+            value: option.value,
+            child: Text(option.label),
+          );
+        }).toList(growable: false),
+        onChanged: (value) {
+          if (value == null) {
+            return;
+          }
+          setState(() {
+            _selectedValues[field.id] = value;
+          });
+        },
+      );
+    }
+
+    return TextFormField(
+      controller: _controllers[field.id],
+      obscureText: field.obscureText,
+      keyboardType: field.keyboardType,
+      decoration: InputDecoration(
+        labelText: field.label,
+        hintText: field.hintText,
+        border: const OutlineInputBorder(),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '请填写${field.label}';
+        }
+        if (field.keyboardType == TextInputType.number) {
+          final port = int.tryParse(value.trim());
+          if (port == null || port <= 0 || port > 65535) {
+            return '端口需在 1 到 65535 之间';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) {
+      return;
+    }
+
+    final values = <String, String>{};
+    for (final field in widget.form.fields) {
+      if (field.options.isEmpty) {
+        values[field.id] = _controllers[field.id]?.text.trim() ?? '';
+      } else {
+        values[field.id] =
+            _selectedValues[field.id] ?? field.options.first.value;
+      }
+    }
+    Navigator.of(context).pop(widget.form.buildCommand(values));
+  }
+}
+
+String _quoteBoardCommandArgument(String source) {
+  final value = source.trim();
+  if (value.isEmpty) {
+    return '""';
+  }
+  if (!RegExp(r'[\s"\\]').hasMatch(value)) {
+    return value;
+  }
+  final escaped = value.replaceAll('\\', r'\\').replaceAll('"', r'\"');
+  return '"$escaped"';
 }
 
 const List<_ShortcutCommand> _shortcutCommands = <_ShortcutCommand>[
   _ShortcutCommand(
-    title: '总结上文',
-    description: '提炼当前对话的结论、行动项和风险。',
-    content: '请总结上文，按“结论 / 行动项 / 风险”输出。',
-    icon: Icons.summarize_outlined,
+    title: '板子设置说明',
+    description: '查看快捷列表支持的 BareBrain 板子设置项。',
+    content: 'brn_help',
+    icon: Icons.info_outline,
   ),
   _ShortcutCommand(
-    title: '继续展开',
-    description: '基于上一条回复继续补充细节。',
-    content: '请继续展开上一条回复，补充关键细节和可执行步骤。',
-    icon: Icons.expand_more,
+    title: '查看板子配置',
+    description: '读取 BareBrain admin portal 当前配置。',
+    content: 'config_show',
+    icon: Icons.settings_input_component_outlined,
   ),
   _ShortcutCommand(
-    title: '给出方案',
-    description: '要求助手比较取舍并给出推荐方案。',
-    content: '请给出 2-3 个可行方案，说明取舍，并推荐一个最稳妥的方案。',
+    title: '设置 WiFi',
+    description: '写入板子的 WiFi SSID 和密码，保存后设备会重启。',
+    content: 'set_wifi',
+    icon: Icons.wifi_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_wifi',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'ssid',
+          label: 'WiFi SSID',
+          hintText: '例如 Home WiFi',
+        ),
+        _BoardCommandField(
+          id: 'password',
+          label: 'WiFi 密码',
+          obscureText: true,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置 API Key',
+    description: '写入主聊天模型使用的 API Key。',
+    content: 'set_api_key',
+    icon: Icons.key_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_api_key',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'api_key',
+          label: 'API Key',
+          obscureText: true,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置模型',
+    description: '写入主聊天模型名称。',
+    content: 'set_model',
+    icon: Icons.smart_toy_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_model',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'model',
+          label: '模型',
+          hintText: '例如 claude-sonnet-4-20250514',
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置模型供应商',
+    description: '切换主聊天模型供应商。',
+    content: 'set_model_provider',
+    icon: Icons.hub_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_model_provider',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'provider',
+          label: '供应商',
+          initialValue: 'anthropic',
+          options: <_BoardCommandOption>[
+            _BoardCommandOption(label: 'Anthropic', value: 'anthropic'),
+            _BoardCommandOption(label: 'OpenAI', value: 'openai'),
+          ],
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置 Base URL',
+    description: '写入主聊天模型请求地址。',
+    content: 'set_base_url',
+    icon: Icons.link_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_base_url',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'base_url',
+          label: 'Base URL',
+          hintText: '例如 https://api.anthropic.com',
+          keyboardType: TextInputType.url,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置记忆 API Key',
+    description: '写入记忆模型使用的 API Key。',
+    content: 'set_memory_api_key',
+    icon: Icons.vpn_key_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_memory_api_key',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'memory_api_key',
+          label: '记忆 API Key',
+          obscureText: true,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置记忆模型',
+    description: '写入记忆模型名称。',
+    content: 'set_memory_model',
+    icon: Icons.psychology_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_memory_model',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'memory_model',
+          label: '记忆模型',
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置记忆供应商',
+    description: '切换记忆模型供应商。',
+    content: 'set_memory_provider',
     icon: Icons.account_tree_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_memory_provider',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'memory_provider',
+          label: '记忆供应商',
+          initialValue: 'anthropic',
+          options: <_BoardCommandOption>[
+            _BoardCommandOption(label: 'Anthropic', value: 'anthropic'),
+            _BoardCommandOption(label: 'OpenAI', value: 'openai'),
+          ],
+        ),
+      ],
+    ),
   ),
   _ShortcutCommand(
-    title: '检查问题',
-    description: '让助手从正确性、性能和风险角度审查内容。',
-    content: '请从正确性、性能、可维护性和潜在风险角度检查上面的内容。',
-    icon: Icons.fact_check_outlined,
+    title: '设置记忆 Base URL',
+    description: '写入记忆模型请求地址。',
+    content: 'set_memory_base_url',
+    icon: Icons.memory_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_memory_base_url',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'memory_base_url',
+          label: '记忆 Base URL',
+          keyboardType: TextInputType.url,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置代理',
+    description: '写入板子访问模型服务时使用的代理地址。',
+    content: 'set_proxy',
+    icon: Icons.public_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_proxy',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'host',
+          label: '代理地址',
+          hintText: '例如 192.168.1.2',
+        ),
+        _BoardCommandField(
+          id: 'port',
+          label: '代理端口',
+          hintText: '例如 7890',
+          keyboardType: TextInputType.number,
+        ),
+        _BoardCommandField(
+          id: 'type',
+          label: '代理类型',
+          initialValue: 'http',
+          options: <_BoardCommandOption>[
+            _BoardCommandOption(label: 'HTTP', value: 'http'),
+            _BoardCommandOption(label: 'SOCKS5', value: 'socks5'),
+          ],
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '清除代理',
+    description: '清空板子上的代理地址、端口和类型。',
+    content: 'clear_proxy',
+    icon: Icons.public_off_outlined,
+    requiresConfirmation: true,
+  ),
+  _ShortcutCommand(
+    title: '设置 Brave Search Key',
+    description: '写入 Brave Search API Key。',
+    content: 'set_search_key',
+    icon: Icons.search_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_search_key',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'search_key',
+          label: 'Brave Search Key',
+          obscureText: true,
+        ),
+      ],
+    ),
+  ),
+  _ShortcutCommand(
+    title: '设置 Tavily Key',
+    description: '写入 Tavily API Key。',
+    content: 'set_tavily_key',
+    icon: Icons.travel_explore_outlined,
+    boardForm: _BoardCommandForm(
+      commandName: 'set_tavily_key',
+      fields: <_BoardCommandField>[
+        _BoardCommandField(
+          id: 'tavily_key',
+          label: 'Tavily Key',
+          obscureText: true,
+        ),
+      ],
+    ),
   ),
 ];
 
@@ -2003,7 +2492,7 @@ class _Composer extends StatelessWidget {
             Row(
               children: <Widget>[
                 _ComposerToolIcon(
-                  tooltip: '快捷命令',
+                  tooltip: '快捷列表',
                   icon: Icons.auto_awesome,
                   color: colors.secondary,
                   onPressed: onShortcutCommandsPressed,
@@ -2104,16 +2593,7 @@ class _ComposerSendButton extends StatelessWidget {
             child: InkWell(
               onTap: enabled ? onPressed : null,
               child: Center(
-                child: isSending
-                    ? SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: foreground,
-                        ),
-                      )
-                    : Icon(Icons.arrow_upward, color: foreground),
+                child: Icon(Icons.arrow_upward, color: foreground),
               ),
             ),
           ),
@@ -2191,34 +2671,57 @@ class _ShortcutCommandListSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
-              '快捷命令',
+              '快捷列表',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            Text(
+              '板子设置会通过 BareBrain admin 接口读取或写入配置。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 12),
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: commands.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 4),
                 itemBuilder: (context, index) {
-                  final command = commands[index];
-                  return ListTile(
-                    leading: Icon(command.icon),
-                    title: Text(command.title),
-                    subtitle: Text(
-                      command.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => Navigator.of(context).pop(command),
-                  );
+                  return _ShortcutCommandTile(command: commands[index]);
                 },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ShortcutCommandTile extends StatelessWidget {
+  const _ShortcutCommandTile({
+    required this.command,
+  });
+
+  final _ShortcutCommand command;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Icon(command.icon),
+        title: Text(command.title),
+        subtitle: Text(
+          command.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.chevron_right, size: 20),
+        onTap: () => Navigator.of(context).pop(command),
       ),
     );
   }

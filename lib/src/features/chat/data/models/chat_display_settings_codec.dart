@@ -51,7 +51,6 @@ class ChatDisplaySettingsCodec {
       'codeFont': settings.codeFont.name,
       'messageFontScale': settings.messageFontScale,
       'autoScrollDelayMs': settings.autoScrollDelay.inMilliseconds,
-      'backgroundMaskOpacity': settings.backgroundMaskOpacity,
     };
   }
 
@@ -176,10 +175,6 @@ class ChatDisplaySettingsCodec {
           value['autoScrollDelayMs'],
           defaults.autoScrollDelay.inMilliseconds,
         ),
-      ),
-      backgroundMaskOpacity: _doubleValue(
-        value['backgroundMaskOpacity'],
-        defaults.backgroundMaskOpacity,
       ),
     );
   }

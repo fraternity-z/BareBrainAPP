@@ -1,6 +1,6 @@
 import 'data/datasources/bare_brain_websocket_transport.dart';
+import 'data/datasources/bare_brain_board_admin_client.dart';
 import 'data/datasources/chat_transport.dart';
-import 'data/datasources/http_chat_voice_output.dart';
 import 'data/datasources/http_ota_version_checker.dart';
 import 'data/datasources/key_value_store.dart';
 import 'data/datasources/network_proxy_connection_tester.dart';
@@ -12,8 +12,8 @@ import 'data/repositories/key_value_chat_conversation_catalog_store.dart';
 import 'data/repositories/key_value_chat_session_store.dart';
 import 'domain/entities/chat_app_settings.dart';
 import 'domain/entities/chat_connection_settings.dart';
-import 'domain/repositories/chat_voice_output.dart';
 import 'domain/usecases/check_chat_connection.dart';
+import 'domain/usecases/run_bare_brain_board_command.dart';
 import 'domain/usecases/send_chat_message.dart';
 import 'presentation/controllers/chat_app_settings_controller.dart';
 import 'presentation/controllers/chat_controller.dart';
@@ -27,7 +27,6 @@ class ChatFeatureModule {
     ChatTransport? transport,
     KeyValueStore? keyValueStore,
     ChatNetworkProxySettings Function()? networkProxySettingsProvider,
-    ChatVoiceOutput? voiceOutput,
   }) {
     final resolvedTransport = transport ??
         BareBrainWebSocketTransport(
@@ -40,6 +39,11 @@ class ChatFeatureModule {
     return ChatController(
       checkConnection: CheckChatConnection(repository),
       sendChatMessage: SendChatMessage(repository),
+      runBoardCommand: RunBareBrainBoardCommand(
+        BareBrainBoardAdminClient(
+          networkProxySettingsProvider: networkProxySettingsProvider,
+        ),
+      ),
       initialSettings: initialSettings,
       sessionStoreFactory: KeyValueChatSessionStoreFactory(
         keyValueStore: resolvedKeyValueStore,
@@ -47,10 +51,6 @@ class ChatFeatureModule {
       catalogStore: KeyValueChatConversationCatalogStore(
         keyValueStore: resolvedKeyValueStore,
       ),
-      voiceOutput: voiceOutput ??
-          HttpChatVoiceOutput(
-            networkProxySettingsProvider: networkProxySettingsProvider,
-          ),
     );
   }
 
@@ -84,18 +84,6 @@ class ChatFeatureModule {
     ChatNetworkProxySettings settings,
   ) {
     return const NetworkProxyConnectionTester().test(settings);
-  }
-
-  static Future<void> testVoiceService(
-    ChatVoiceSettings settings, {
-    ChatNetworkProxySettings Function()? networkProxySettingsProvider,
-  }) {
-    return HttpChatVoiceOutput(
-      networkProxySettingsProvider: networkProxySettingsProvider,
-    ).speak(
-      '语音服务测试',
-      settings.copyWith(enabled: true),
-    );
   }
 
   static Future<void> testOtaVersionCheck(

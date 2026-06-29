@@ -21,7 +21,6 @@ import 'ota_settings_sheet.dart';
 import 'prompt_injection_page.dart';
 import 'quick_phrases_page.dart';
 import 'settings_components.dart';
-import 'voice_service_page.dart';
 
 typedef TestOtaVersionCheck = Future<void> Function(
   ChatConnectionSettings settings,
@@ -38,7 +37,6 @@ class ChatSettingsPage extends StatefulWidget {
     this.appSettingsController,
     this.onTestConnection,
     this.onTestNetworkProxyConnection,
-    this.onTestVoiceService,
     this.onTestOtaVersionCheck,
     this.loadStorageUsage,
     super.key,
@@ -53,7 +51,6 @@ class ChatSettingsPage extends StatefulWidget {
   final ChatAppSettingsController? appSettingsController;
   final TestChatConnection? onTestConnection;
   final TestNetworkProxyConnection? onTestNetworkProxyConnection;
-  final TestVoiceService? onTestVoiceService;
   final TestOtaVersionCheck? onTestOtaVersionCheck;
   final LoadChatStorageUsage? loadStorageUsage;
 
@@ -105,7 +102,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       builder: (context, _) {
         final appSettings = _appSettingsController.settings;
         final appSettingsError = _appSettingsController.errorMessage;
-        final displaySettings = _currentDisplaySettings;
         final displaySettingsError =
             widget.displaySettingsController?.errorMessage ??
                 widget.displaySettingsError;
@@ -136,13 +132,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 topPadding: 6,
                 children: <Widget>[
                   SettingsRow(
-                    key: const Key('settings_row_color_mode'),
-                    icon: Icons.light_mode_outlined,
-                    title: '颜色模式',
-                    value: displaySettings.colorMode.label,
-                    onTap: _openColorModeSettings,
-                  ),
-                  SettingsRow(
                     key: const Key('settings_row_display'),
                     icon: Icons.desktop_windows_outlined,
                     title: '显示设置',
@@ -153,13 +142,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
               SettingsSection(
                 title: '模型与服务',
                 children: <Widget>[
-                  SettingsRow(
-                    key: const Key('settings_row_voice_service'),
-                    icon: Icons.volume_up_outlined,
-                    title: '语音服务',
-                    value: appSettings.voice.summary,
-                    onTap: _openVoiceService,
-                  ),
                   SettingsRow(
                     key: const Key('settings_row_quick_phrases'),
                     icon: Icons.flash_on_outlined,
@@ -241,12 +223,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     title: '使用文档',
                     onTap: _openDocsPage,
                   ),
-                  SettingsRow(
-                    key: const Key('settings_row_sponsor'),
-                    icon: Icons.favorite_border,
-                    title: '赞助',
-                    onTap: _openSponsorPage,
-                  ),
                 ],
               ),
             ],
@@ -302,23 +278,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     _applySettings(_settings.copyWith(otaSettings: next));
   }
 
-  Future<void> _openColorModeSettings() async {
-    final displaySettings = _currentDisplaySettings;
-    final next = await showModalBottomSheet<ChatColorMode>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return _ColorModePickerSheet(selected: displaySettings.colorMode);
-      },
-    );
-
-    if (next == null || !mounted) {
-      return;
-    }
-
-    _applyDisplaySettings(displaySettings.copyWith(colorMode: next));
-  }
-
   void _openDisplaySettings() {
     unawaited(
       Navigator.of(context).push<void>(
@@ -353,20 +312,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             settings: _appSettingsController.settings.networkProxy,
             onChanged: _appSettingsController.updateNetworkProxy,
             onTestConnection: widget.onTestNetworkProxyConnection,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openVoiceService() {
-    unawaited(
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (context) => VoiceServicePage(
-            settings: _appSettingsController.settings.voice,
-            onChanged: _appSettingsController.updateVoice,
-            onTestVoiceService: widget.onTestVoiceService,
           ),
         ),
       ),
@@ -452,16 +397,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     );
   }
 
-  void _openSponsorPage() {
-    unawaited(
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (context) => const _SponsorPage(),
-        ),
-      ),
-    );
-  }
-
   void _applySettings(ChatConnectionSettings settings) {
     setState(() => _settings = settings);
     widget.onSettingsChanged(settings);
@@ -490,7 +425,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 const String _aboutAppName = 'BareBrainAPP';
 const String _aboutAppSubtitle = 'BareBrain 局域网 AI 聊天客户端';
 const String _aboutAppDescription =
-    '面向 BareBrain 的本地聊天客户端，支持局域网连接、会话记录、语音服务、快捷短语和本地备份恢复。';
+    '面向 BareBrain 的本地聊天客户端，支持局域网连接、会话记录、快捷短语和本地备份恢复。';
 const String _aboutAppVersion = '0.1.0 / 1';
 const String _aboutAppIconAsset = 'assets/branding/barebrain_app_icon_1024.png';
 
@@ -558,6 +493,24 @@ class _AboutPage extends StatelessWidget {
                 title: '许可证',
                 value: '暂未声明',
               ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const _SettingsTextCard(
+            icon: Icons.favorite_border,
+            title: '支持 BareBrainAPP',
+            paragraphs: <String>[
+              '当前版本未内置收款入口。你可以通过反馈连接问题、提供不同局域网环境的测试结果、整理 BareBrain 固件兼容信息来支持项目。',
+              '如果这是团队内部版本，可以在后续发布中把组织自己的赞助渠道或反馈入口接入到这里。',
+            ],
+          ),
+          const SizedBox(height: 18),
+          const _SettingsTextCard(
+            icon: Icons.handyman_outlined,
+            title: '优先需要的帮助',
+            paragraphs: <String>[
+              '补充更多 BareBrain 设备型号、网络代理和 OTA 检查场景下的实际测试反馈。',
+              '整理高频提示词、快捷短语和指令注入模板，降低首次配置成本。',
             ],
           ),
         ],
@@ -943,11 +896,6 @@ class _StatisticsPageState extends State<_StatisticsPage> {
                 value: appSettings.promptInjection.summary,
               ),
               _AboutInfoRow(
-                icon: Icons.volume_up_outlined,
-                title: '语音服务',
-                value: appSettings.voice.summary,
-              ),
-              _AboutInfoRow(
                 icon: Icons.public_outlined,
                 title: '网络代理',
                 value: appSettings.networkProxy.summary,
@@ -1273,7 +1221,7 @@ List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
     const _DocumentationTab(
       label: '聊天',
       title: '聊天与会话',
-      description: '管理会话列表、消息发送、重新生成以及输入栏里的常用内容。',
+      description: '管理会话列表、消息发送、重新生成以及输入栏左下角的快捷列表。',
       icon: Icons.chat_bubble_outline,
       cards: <_DocumentationCardData>[
         _DocumentationCardData(
@@ -1289,7 +1237,15 @@ List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
           title: '发送与重试',
           paragraphs: <String>[
             '发送失败后可以重试最后一条用户消息；开启确认后，重新生成前会先弹出确认框。',
-            '输入栏支持快捷命令插入内置模板，也可以插入你在设置页维护的自定义快捷短语。',
+            '快捷短语可在设置页维护，并从输入栏快速插入。',
+          ],
+        ),
+        _DocumentationCardData(
+          icon: Icons.settings_input_component_outlined,
+          title: '快捷列表说明',
+          paragraphs: <String>[
+            '板子设置项从聊天框左下角快捷列表进入，会通过 BareBrain admin 接口读取或写入配置，不会发送给聊天模型。',
+            '当前支持查看配置、设置 WiFi、API Key、模型、供应商、Base URL、记忆模型、代理和搜索 Key；设置说明只是用途说明，不需要手动输入命令文本。',
           ],
         ),
       ],
@@ -1297,7 +1253,7 @@ List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
     const _DocumentationTab(
       label: '增强',
       title: '增强与服务',
-      description: '把提示词、语音服务、网络代理等能力接入日常聊天流程。',
+      description: '把提示词、网络代理等能力接入日常聊天流程。',
       icon: Icons.tune_outlined,
       cards: <_DocumentationCardData>[
         _DocumentationCardData(
@@ -1309,11 +1265,11 @@ List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
           ],
         ),
         _DocumentationCardData(
-          icon: Icons.record_voice_over_outlined,
+          icon: Icons.public_outlined,
           title: '外部服务',
           paragraphs: <String>[
-            '语音服务启用后，会在收到助手回复时把回复文本 POST 到配置的 HTTP 服务。',
-            '网络代理会应用到聊天 WebSocket、语音服务和 OTA 检查请求。',
+            '网络代理会应用到聊天 WebSocket 和 OTA 检查请求。',
+            '命中代理绕过规则时，请求会回到直连，适合保留局域网设备访问路径。',
           ],
         ),
       ],
@@ -1343,42 +1299,6 @@ List<_DocumentationTab> _buildDocumentationTabs(String defaultGateway) {
       ],
     ),
   ];
-}
-
-class _SponsorPage extends StatelessWidget {
-  const _SponsorPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return SettingsScreenFrame(
-      title: '赞助',
-      child: ListView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-        children: const <Widget>[
-          _SettingsTextCard(
-            icon: Icons.favorite_border,
-            title: '支持 BareBrainAPP',
-            paragraphs: <String>[
-              '当前版本未内置收款入口。你可以通过反馈连接问题、提供不同局域网环境的测试结果、整理 BareBrain 固件兼容信息来支持项目。',
-              '如果这是团队内部版本，可以在后续发布中把组织自己的赞助渠道或反馈入口接入到这里。',
-            ],
-          ),
-          SizedBox(height: 18),
-          _SettingsTextCard(
-            icon: Icons.handyman_outlined,
-            title: '优先需要的帮助',
-            paragraphs: <String>[
-              '补充更多 BareBrain 设备型号、网络代理和 OTA 检查场景下的实际测试反馈。',
-              '整理高频提示词、快捷短语和指令注入模板，降低首次配置成本。',
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SettingsTextCard extends StatelessWidget {
@@ -1469,32 +1389,4 @@ String _formatDuration(Duration duration) {
   }
 
   return '${minutes}m ${seconds}s';
-}
-
-class _ColorModePickerSheet extends StatelessWidget {
-  const _ColorModePickerSheet({
-    required this.selected,
-  });
-
-  final ChatColorMode selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ChatColorMode.values.map((mode) {
-            return ListTile(
-              key: Key('color_mode_${mode.name}'),
-              title: Text(mode.label),
-              trailing: selected == mode ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.of(context).pop(mode),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
 }

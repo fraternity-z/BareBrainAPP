@@ -199,7 +199,7 @@ class _NetworkProxyPageState extends State<NetworkProxyPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '代理设置会应用于 BareBrain WebSocket、语音 HTTP 和 OTA 版本检查，命中绕过规则时使用直连。',
+                  '代理设置会应用于 BareBrain WebSocket 和 OTA 版本检查，命中绕过规则时使用直连。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: settingsSecondaryTextColor(context),
                         fontSize: 15,
