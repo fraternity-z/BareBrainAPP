@@ -37,6 +37,15 @@ class ServerEnvironment {
     return int.tryParse(_values[name] ?? '') ?? fallback;
   }
 
+  Uri? uri(String name) {
+    final value = _values[name];
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    return Uri.tryParse(value.trim());
+  }
+
   static _EnvEntry? _parseEnvLine(String line) {
     final trimmed = line.trim();
     if (trimmed.isEmpty || trimmed.startsWith('#')) {

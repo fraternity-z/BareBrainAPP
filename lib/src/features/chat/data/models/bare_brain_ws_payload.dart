@@ -7,16 +7,19 @@ class BareBrainWsPayload {
     required this.type,
     required this.content,
     required this.chatId,
+    this.requestId = '',
   });
 
   factory BareBrainWsPayload.message({
     required String content,
     required String chatId,
+    String requestId = '',
   }) {
     return BareBrainWsPayload(
       type: 'message',
       content: content,
       chatId: chatId,
+      requestId: requestId,
     );
   }
 
@@ -28,6 +31,7 @@ class BareBrainWsPayload {
     final type = value['type'];
     final content = value['content'];
     final chatId = value['chat_id'];
+    final requestId = value['request_id'];
 
     if (type is! String) {
       throw const ChatProtocolException('BareBrain 响应缺少必要字段');
@@ -43,6 +47,7 @@ class BareBrainWsPayload {
         type: type,
         content: message,
         chatId: chatId is String ? chatId : '',
+        requestId: requestId is String ? requestId : '',
       );
     }
 
@@ -54,6 +59,7 @@ class BareBrainWsPayload {
       type: type,
       content: content,
       chatId: chatId,
+      requestId: requestId is String ? requestId : '',
     );
   }
 
@@ -70,15 +76,20 @@ class BareBrainWsPayload {
   final String type;
   final String content;
   final String chatId;
+  final String requestId;
 
   bool get isResponse => type == 'response';
   bool get isError => type == 'error';
+  bool get isIncoming {
+    return type == 'response' || type == 'message' || type == 'event';
+  }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'type': type,
       'content': content,
       'chat_id': chatId,
+      if (requestId.isNotEmpty) 'request_id': requestId,
     };
   }
 

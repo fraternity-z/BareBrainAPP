@@ -13,6 +13,7 @@ import 'data/repositories/key_value_chat_session_store.dart';
 import 'domain/entities/chat_app_settings.dart';
 import 'domain/entities/chat_connection_settings.dart';
 import 'domain/usecases/check_chat_connection.dart';
+import 'domain/usecases/receive_chat_messages.dart';
 import 'domain/usecases/run_bare_brain_board_command.dart';
 import 'domain/usecases/send_chat_message.dart';
 import 'presentation/controllers/chat_app_settings_controller.dart';
@@ -38,6 +39,7 @@ class ChatFeatureModule {
 
     return ChatController(
       checkConnection: CheckChatConnection(repository),
+      receiveChatMessages: ReceiveChatMessages(repository),
       sendChatMessage: SendChatMessage(repository),
       runBoardCommand: RunBareBrainBoardCommand(
         BareBrainBoardAdminClient(

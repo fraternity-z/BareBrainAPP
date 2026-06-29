@@ -10,6 +10,7 @@ import '../../domain/entities/chat_conversation_catalog.dart';
 import '../../domain/entities/chat_conversation_summary.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_session_snapshot.dart';
+import '../../domain/entities/incoming_chat_message.dart';
 import '../../domain/repositories/chat_conversation_catalog_store.dart';
 import '../../domain/repositories/chat_session_store.dart';
 import '../../domain/services/chat_conversation_title_builder.dart';
@@ -18,6 +19,7 @@ import '../../domain/services/chat_route_id_builder.dart';
 import '../../domain/services/bare_brain_board_command_parser.dart';
 import '../../domain/usecases/run_bare_brain_board_command.dart';
 import '../../domain/usecases/check_chat_connection.dart';
+import '../../domain/usecases/receive_chat_messages.dart';
 import '../../domain/usecases/send_chat_message.dart';
 import '../../data/models/chat_conversation_catalog_codec.dart';
 import '../../data/models/chat_session_snapshot_codec.dart';
@@ -26,6 +28,7 @@ class ChatController extends ChangeNotifier {
   ChatController({
     required SendChatMessage sendChatMessage,
     required ChatConnectionSettings initialSettings,
+    ReceiveChatMessages? receiveChatMessages,
     RunBareBrainBoardCommand? runBoardCommand,
     CheckChatConnection? checkConnection,
     ChatSessionStore? sessionStore,
@@ -35,6 +38,7 @@ class ChatController extends ChangeNotifier {
     String conversationId = 'default',
     String conversationTitle = 'BareBrain',
   })  : _sendChatMessage = sendChatMessage,
+        _receiveChatMessages = receiveChatMessages,
         _runBoardCommand = runBoardCommand,
         _checkConnection = checkConnection,
         _settings = initialSettings,
@@ -48,6 +52,7 @@ class ChatController extends ChangeNotifier {
         _conversationTitle = conversationTitle;
 
   final SendChatMessage _sendChatMessage;
+  final ReceiveChatMessages? _receiveChatMessages;
   final RunBareBrainBoardCommand? _runBoardCommand;
   final CheckChatConnection? _checkConnection;
   final ChatSessionStore? _fixedSessionStore;
@@ -60,16 +65,26 @@ class ChatController extends ChangeNotifier {
   ChatConnectionSettings _settings;
   ChatSessionStore? _activeSessionStore;
   final List<ChatMessage> _messages = <ChatMessage>[];
+  final List<IncomingChatMessage> _deferredIncomingMessages =
+      <IncomingChatMessage>[];
   List<ChatConversationSummary> _conversations = <ChatConversationSummary>[];
   String _draft = '';
   bool _isSending = false;
   bool _isDisposed = false;
   Timer? _draftSaveTimer;
+  StreamSubscription<IncomingChatMessage>? _incomingMessageSubscription;
   Future<void>? _snapshotSaveFuture;
+  String? _incomingMessageRouteKey;
+  String? _lastIncomingMessageSignature;
+  DateTime? _lastIncomingMessageAt;
+  int _incomingMessageGeneration = 0;
   bool _saveSnapshotAgain = false;
   String? _errorMessage;
 
   static const Duration _draftSaveDebounce = Duration(milliseconds: 450);
+  static const Duration _incomingDuplicateWindow = Duration(seconds: 3);
+  static const int _maxDeferredIncomingMessages = 20;
+  static const String _incomingErrorPrefix = '主动接收失败：';
 
   ChatConnectionSettings get settings => _settings;
   List<ChatMessage> get messages => List.unmodifiable(_messages);
@@ -162,6 +177,7 @@ class ChatController extends ChangeNotifier {
       await _restoreActiveSnapshot();
       _errorMessage = null;
       unawaited(_saveCatalogSummary());
+      _restartIncomingMessageSubscription();
       _notify();
     } catch (error) {
       _errorMessage = '恢复会话失败：$error';
@@ -172,6 +188,7 @@ class ChatController extends ChangeNotifier {
   void updateSettings(ChatConnectionSettings settings) {
     _settings = settings;
     _errorMessage = null;
+    _restartIncomingMessageSubscription();
     unawaited(_saveSnapshot());
     unawaited(_saveCatalogSummary());
     _notify();
@@ -229,11 +246,13 @@ class ChatController extends ChangeNotifier {
         : 'BareBrain ${_conversations.length + 1}';
     _activeSessionStore = _storeForConversation(id);
     _messages.clear();
+    _deferredIncomingMessages.clear();
     _draft = '';
     _errorMessage = null;
 
     await _saveSnapshot();
     await _saveCatalogSummary();
+    _restartIncomingMessageSubscription();
     _notify();
   }
 
@@ -257,11 +276,13 @@ class ChatController extends ChangeNotifier {
     _settings = summary.settings;
     _activeSessionStore = _storeForConversation(summary.id);
     _messages.clear();
+    _deferredIncomingMessages.clear();
     _draft = '';
     _errorMessage = null;
 
     await _restoreActiveSnapshot();
     await _saveCatalogSummary();
+    _restartIncomingMessageSubscription();
     _notify();
   }
 
@@ -565,6 +586,7 @@ class ChatController extends ChangeNotifier {
         _settings,
         chatId: bareBrainChatId,
       );
+      _rememberIncomingMessage(content: response, requestId: '');
       _messages[userMessageIndex] = _messages[userMessageIndex].copyWith(
         isPending: false,
       );
@@ -612,6 +634,7 @@ class ChatController extends ChangeNotifier {
       await _saveCatalogSummary();
     } finally {
       _isSending = false;
+      unawaited(_flushDeferredIncomingMessages());
       _notify();
     }
   }
@@ -619,10 +642,197 @@ class ChatController extends ChangeNotifier {
   void clear() {
     _cancelDraftSnapshotSave();
     _messages.clear();
+    _deferredIncomingMessages.clear();
     _errorMessage = null;
     unawaited(_saveSnapshot());
     unawaited(_saveCatalogSummary());
     _notify();
+  }
+
+  void _restartIncomingMessageSubscription() {
+    final receiveChatMessages = _receiveChatMessages;
+    if (_isDisposed || receiveChatMessages == null) {
+      return;
+    }
+
+    final chatId = bareBrainChatId;
+    final routeKey = '${_settings.websocketUri}|$chatId';
+    if (_incomingMessageRouteKey == routeKey &&
+        _incomingMessageSubscription != null) {
+      return;
+    }
+
+    _incomingMessageGeneration++;
+    final generation = _incomingMessageGeneration;
+    _incomingMessageRouteKey = routeKey;
+    _lastIncomingMessageSignature = null;
+    _lastIncomingMessageAt = null;
+    unawaited(_incomingMessageSubscription?.cancel());
+    _incomingMessageSubscription = receiveChatMessages(
+      _settings,
+      chatId: chatId,
+    ).listen(
+      (message) {
+        if (generation != _incomingMessageGeneration) {
+          return;
+        }
+        unawaited(_appendIncomingMessage(message));
+      },
+      onError: (Object error) {
+        if (generation != _incomingMessageGeneration) {
+          return;
+        }
+        _handleIncomingMessageError(error);
+      },
+    );
+  }
+
+  Future<void> _appendIncomingMessage(IncomingChatMessage message) async {
+    if (_isDisposed) {
+      return;
+    }
+
+    if (_isSending) {
+      _deferIncomingMessage(message);
+      return;
+    }
+
+    final content = message.content.trim();
+    if (content.isEmpty || _isDuplicateIncomingMessage(message, content)) {
+      return;
+    }
+
+    _rememberIncomingMessage(
+      content: content,
+      requestId: message.requestId,
+      chatId: message.chatId,
+    );
+    if (_errorMessage?.startsWith(_incomingErrorPrefix) == true) {
+      _errorMessage = null;
+    }
+    _messages.add(
+      ChatMessage(
+        id: _newId('assistant'),
+        author: ChatMessageAuthor.assistant,
+        content: content,
+        createdAt: DateTime.now(),
+      ),
+    );
+    await _saveSnapshot();
+    await _saveCatalogSummary();
+    _notify();
+  }
+
+  void _deferIncomingMessage(IncomingChatMessage message) {
+    final content = message.content.trim();
+    if (content.isEmpty) {
+      return;
+    }
+
+    final signature = _incomingMessageSignature(
+      content: content,
+      requestId: message.requestId,
+      chatId: message.chatId,
+    );
+    final alreadyDeferred = _deferredIncomingMessages.any((deferred) {
+      return _incomingMessageSignature(
+            content: deferred.content.trim(),
+            requestId: deferred.requestId,
+            chatId: deferred.chatId,
+          ) ==
+          signature;
+    });
+    if (alreadyDeferred) {
+      return;
+    }
+
+    _deferredIncomingMessages.add(message);
+    if (_deferredIncomingMessages.length > _maxDeferredIncomingMessages) {
+      _deferredIncomingMessages.removeAt(0);
+    }
+  }
+
+  Future<void> _flushDeferredIncomingMessages() async {
+    if (_deferredIncomingMessages.isEmpty || _isDisposed) {
+      return;
+    }
+
+    final messages =
+        List<IncomingChatMessage>.unmodifiable(_deferredIncomingMessages);
+    _deferredIncomingMessages.clear();
+    for (final message in messages) {
+      await _appendIncomingMessage(message);
+    }
+  }
+
+  bool _isDuplicateIncomingMessage(
+    IncomingChatMessage message,
+    String content,
+  ) {
+    final now = DateTime.now();
+    final signature = _incomingMessageSignature(
+      content: content,
+      requestId: message.requestId,
+      chatId: message.chatId,
+    );
+    final lastAt = _lastIncomingMessageAt;
+    if (_lastIncomingMessageSignature == signature &&
+        lastAt != null &&
+        now.difference(lastAt).abs() <= _incomingDuplicateWindow) {
+      return true;
+    }
+
+    if (_messages.isEmpty) {
+      return false;
+    }
+
+    final lastMessage = _messages.last;
+    return lastMessage.author == ChatMessageAuthor.assistant &&
+        lastMessage.content.trim() == content &&
+        now.difference(lastMessage.createdAt).abs() <= _incomingDuplicateWindow;
+  }
+
+  void _rememberIncomingMessage({
+    required String content,
+    String requestId = '',
+    String chatId = '',
+  }) {
+    _lastIncomingMessageSignature = _incomingMessageSignature(
+      content: content.trim(),
+      requestId: requestId,
+      chatId: chatId,
+    );
+    _lastIncomingMessageAt = DateTime.now();
+  }
+
+  String _incomingMessageSignature({
+    required String content,
+    required String requestId,
+    required String chatId,
+  }) {
+    if (requestId.trim().isNotEmpty) {
+      return 'request:${requestId.trim()}';
+    }
+
+    return 'content:${chatId.trim()}:$content';
+  }
+
+  void _handleIncomingMessageError(Object error) {
+    final message = '$_incomingErrorPrefix${_chatErrorMessage(error)}';
+    if (_errorMessage == message) {
+      return;
+    }
+
+    _errorMessage = message;
+    _notify();
+  }
+
+  String _chatErrorMessage(Object error) {
+    if (error is ChatException) {
+      return error.message;
+    }
+
+    return error.toString();
   }
 
   String _newId(String prefix) {
@@ -862,7 +1072,7 @@ class ChatController extends ChangeNotifier {
 
     final last = _messages.last;
     if (last.author == ChatMessageAuthor.assistant && last.isPending) {
-      return '正在思考...';
+      return '等待回复...';
     }
 
     final normalized = last.content.trim().replaceAll(
@@ -956,6 +1166,7 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _cancelDraftSnapshotSave();
+    unawaited(_incomingMessageSubscription?.cancel());
     super.dispose();
   }
 }

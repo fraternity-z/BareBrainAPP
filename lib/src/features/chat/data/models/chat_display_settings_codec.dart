@@ -31,12 +31,10 @@ class ChatDisplaySettingsCodec {
       'inlineMathRendering': settings.inlineMathRendering,
       'mathEquationRendering': settings.mathEquationRendering,
       'userMessageMarkdownRendering': settings.userMessageMarkdownRendering,
-      'reasoningMarkdownRendering': settings.reasoningMarkdownRendering,
       'assistantMessageMarkdownRendering':
           settings.assistantMessageMarkdownRendering,
       'autoFoldCodeBlocks': settings.autoFoldCodeBlocks,
       'mobileCodeBlockAutoWrap': settings.mobileCodeBlockAutoWrap,
-      'foldThinkingSteps': settings.foldThinkingSteps,
       'deleteMessagesBelowOnRegenerate':
           settings.deleteMessagesBelowOnRegenerate,
       'confirmBeforeRegenerate': settings.confirmBeforeRegenerate,
@@ -102,10 +100,6 @@ class ChatDisplaySettingsCodec {
         value['userMessageMarkdownRendering'],
         defaults.userMessageMarkdownRendering,
       ),
-      reasoningMarkdownRendering: _boolValue(
-        value['reasoningMarkdownRendering'],
-        defaults.reasoningMarkdownRendering,
-      ),
       assistantMessageMarkdownRendering: _boolValue(
         value['assistantMessageMarkdownRendering'],
         defaults.assistantMessageMarkdownRendering,
@@ -117,10 +111,6 @@ class ChatDisplaySettingsCodec {
       mobileCodeBlockAutoWrap: _boolValue(
         value['mobileCodeBlockAutoWrap'],
         defaults.mobileCodeBlockAutoWrap,
-      ),
-      foldThinkingSteps: _boolValue(
-        value['foldThinkingSteps'],
-        defaults.foldThinkingSteps,
       ),
       deleteMessagesBelowOnRegenerate: _boolValue(
         value['deleteMessagesBelowOnRegenerate'],

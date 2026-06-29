@@ -11,7 +11,8 @@ class RelayProtocolException implements Exception {
 
 Map<String, Object?> decodeObject(Object? data) {
   if (data is! String) {
-    throw const RelayProtocolException('Only text WebSocket frames are supported');
+    throw const RelayProtocolException(
+        'Only text WebSocket frames are supported');
   }
 
   final decoded = jsonDecode(data);

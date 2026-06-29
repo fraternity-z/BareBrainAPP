@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'push_notifier.dart';
 import 'relay_protocol.dart';
 import 'server_environment.dart';
 
@@ -8,7 +10,12 @@ Future<void> main() async {
   final environment = await ServerEnvironment.load();
   final config = RelayConfig.fromEnvironment(environment);
   final server = await HttpServer.bind(config.host, config.port);
-  final hub = RelayHub(config);
+  final hub = RelayHub(
+    config,
+    pushNotifier: PushNotifier(
+      config: PushConfig.fromEnvironment(environment),
+    ),
+  );
 
   logInfo('BareBrain Relay listening on ${config.host}:${config.port}');
   logInfo('Device endpoint: /ws/device?device_id=${config.deviceId}&token=...');
@@ -49,10 +56,15 @@ class RelayConfig {
 }
 
 class RelayHub {
-  RelayHub(this._config);
+  RelayHub(
+    this._config, {
+    PushNotifier? pushNotifier,
+  }) : _pushNotifier = pushNotifier;
 
   final RelayConfig _config;
+  final PushNotifier? _pushNotifier;
   DeviceConnection? _device;
+  final List<AppConnection> _apps = <AppConnection>[];
   final Map<String, AppConnection> _pendingApps = <String, AppConnection>{};
 
   Future<void> handle(HttpRequest request) async {
@@ -62,6 +74,11 @@ class RelayHub {
         ..statusCode = HttpStatus.ok
         ..write('ok');
       await request.response.close();
+      return;
+    }
+
+    if (path == '/debug/incoming') {
+      await _handleDebugIncoming(request);
       return;
     }
 
@@ -81,6 +98,35 @@ class RelayHub {
     }
 
     await _handleApp(request);
+  }
+
+  Future<void> _handleDebugIncoming(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _reject(request, HttpStatus.methodNotAllowed, 'Method not allowed');
+      return;
+    }
+
+    if (!_queryMatches(request, _config.deviceToken)) {
+      await _reject(request, HttpStatus.unauthorized, 'Unauthorized debug');
+      return;
+    }
+
+    try {
+      final source = await utf8.decoder.bind(request).join();
+      final payload = decodeObject(source);
+      _broadcastIncoming(<String, Object?>{
+        'type': 'incoming',
+        'chat_id': requiredString(payload, 'chat_id'),
+        'content': requiredString(payload, 'content'),
+      });
+
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..write('ok');
+      await request.response.close();
+    } on Object catch (error) {
+      await _reject(request, HttpStatus.badRequest, error.toString());
+    }
   }
 
   Future<void> _handleDevice(HttpRequest request) async {
@@ -117,10 +163,12 @@ class RelayHub {
       socket: socket,
       onMessage: _handleAppMessage,
       onDone: () {
+        _apps.removeWhere((app) => app.socket == socket);
         _pendingApps.removeWhere((_, app) => app.socket == socket);
       },
     );
 
+    _apps.add(connection);
     connection.listen();
     logInfo('App connected for device: ${_config.deviceId}');
   }
@@ -146,6 +194,8 @@ class RelayHub {
       chatId = requiredString(payload, 'chat_id');
       final content = requiredString(payload, 'content');
       final device = _device;
+
+      logInfo('App request: chat_id=$chatId, request_id=$requestId');
 
       if (device == null) {
         app.send(errorPayload(
@@ -176,9 +226,15 @@ class RelayHub {
     try {
       final payload = decodeObject(data);
       final type = requiredString(payload, 'type');
+      if (_isDeviceIncomingPayload(payload, type)) {
+        _broadcastIncoming(payload);
+        return;
+      }
+
       final requestId = requiredString(payload, 'request_id');
       final app = _pendingApps.remove(requestId);
       if (app == null) {
+        logWarning('No app waiting for request_id=$requestId');
         return;
       }
 
@@ -201,6 +257,51 @@ class RelayHub {
       }
     } on Object catch (error) {
       logWarning('Invalid device payload: $error');
+    }
+  }
+
+  bool _isDeviceIncomingPayload(Map<String, Object?> payload, String type) {
+    if (type == 'incoming' || type == 'message' || type == 'event') {
+      return true;
+    }
+
+    return type == 'response' && !_hasRequestId(payload);
+  }
+
+  bool _hasRequestId(Map<String, Object?> payload) {
+    final requestId = payload['request_id'];
+    return requestId is String && requestId.trim().isNotEmpty;
+  }
+
+  void _broadcastIncoming(Map<String, Object?> payload) {
+    final chatId = requiredString(payload, 'chat_id');
+    final content = requiredString(payload, 'content');
+
+    logInfo('Incoming device message: chat_id=$chatId, apps=${_apps.length}');
+
+    for (final app in List<AppConnection>.of(_apps)) {
+      app.send(<String, Object?>{
+        'type': 'response',
+        'chat_id': chatId,
+        'content': content,
+      });
+    }
+
+    unawaited(_sendPushNotification(chatId: chatId, content: content));
+  }
+
+  Future<void> _sendPushNotification({
+    required String chatId,
+    required String content,
+  }) async {
+    try {
+      await _pushNotifier?.notifyIncoming(
+        deviceId: _config.deviceId,
+        chatId: chatId,
+        content: content,
+      );
+    } on Object catch (error) {
+      logWarning('Push notification failed: $error');
     }
   }
 

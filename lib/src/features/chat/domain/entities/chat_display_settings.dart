@@ -72,11 +72,9 @@ class ChatDisplaySettings {
     this.inlineMathRendering = true,
     this.mathEquationRendering = true,
     this.userMessageMarkdownRendering = true,
-    this.reasoningMarkdownRendering = true,
     this.assistantMessageMarkdownRendering = true,
     this.autoFoldCodeBlocks = false,
     this.mobileCodeBlockAutoWrap = false,
-    this.foldThinkingSteps = false,
     this.deleteMessagesBelowOnRegenerate = false,
     this.confirmBeforeRegenerate = true,
     this.showMessageNavigationButtons = true,
@@ -102,11 +100,9 @@ class ChatDisplaySettings {
   final bool inlineMathRendering;
   final bool mathEquationRendering;
   final bool userMessageMarkdownRendering;
-  final bool reasoningMarkdownRendering;
   final bool assistantMessageMarkdownRendering;
   final bool autoFoldCodeBlocks;
   final bool mobileCodeBlockAutoWrap;
-  final bool foldThinkingSteps;
   final bool deleteMessagesBelowOnRegenerate;
   final bool confirmBeforeRegenerate;
   final bool showMessageNavigationButtons;
@@ -132,11 +128,9 @@ class ChatDisplaySettings {
     bool? inlineMathRendering,
     bool? mathEquationRendering,
     bool? userMessageMarkdownRendering,
-    bool? reasoningMarkdownRendering,
     bool? assistantMessageMarkdownRendering,
     bool? autoFoldCodeBlocks,
     bool? mobileCodeBlockAutoWrap,
-    bool? foldThinkingSteps,
     bool? deleteMessagesBelowOnRegenerate,
     bool? confirmBeforeRegenerate,
     bool? showMessageNavigationButtons,
@@ -168,14 +162,11 @@ class ChatDisplaySettings {
           mathEquationRendering ?? this.mathEquationRendering,
       userMessageMarkdownRendering:
           userMessageMarkdownRendering ?? this.userMessageMarkdownRendering,
-      reasoningMarkdownRendering:
-          reasoningMarkdownRendering ?? this.reasoningMarkdownRendering,
       assistantMessageMarkdownRendering: assistantMessageMarkdownRendering ??
           this.assistantMessageMarkdownRendering,
       autoFoldCodeBlocks: autoFoldCodeBlocks ?? this.autoFoldCodeBlocks,
       mobileCodeBlockAutoWrap:
           mobileCodeBlockAutoWrap ?? this.mobileCodeBlockAutoWrap,
-      foldThinkingSteps: foldThinkingSteps ?? this.foldThinkingSteps,
       deleteMessagesBelowOnRegenerate: deleteMessagesBelowOnRegenerate ??
           this.deleteMessagesBelowOnRegenerate,
       confirmBeforeRegenerate:
@@ -243,12 +234,10 @@ class ChatDisplaySettings {
             other.mathEquationRendering == mathEquationRendering &&
             other.userMessageMarkdownRendering ==
                 userMessageMarkdownRendering &&
-            other.reasoningMarkdownRendering == reasoningMarkdownRendering &&
             other.assistantMessageMarkdownRendering ==
                 assistantMessageMarkdownRendering &&
             other.autoFoldCodeBlocks == autoFoldCodeBlocks &&
             other.mobileCodeBlockAutoWrap == mobileCodeBlockAutoWrap &&
-            other.foldThinkingSteps == foldThinkingSteps &&
             other.deleteMessagesBelowOnRegenerate ==
                 deleteMessagesBelowOnRegenerate &&
             other.confirmBeforeRegenerate == confirmBeforeRegenerate &&
@@ -280,11 +269,9 @@ class ChatDisplaySettings {
       inlineMathRendering,
       mathEquationRendering,
       userMessageMarkdownRendering,
-      reasoningMarkdownRendering,
       assistantMessageMarkdownRendering,
       autoFoldCodeBlocks,
       mobileCodeBlockAutoWrap,
-      foldThinkingSteps,
       deleteMessagesBelowOnRegenerate,
       confirmBeforeRegenerate,
       showMessageNavigationButtons,

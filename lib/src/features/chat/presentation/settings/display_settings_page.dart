@@ -312,7 +312,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       _settings.inlineMathRendering,
       _settings.mathEquationRendering,
       _settings.userMessageMarkdownRendering,
-      _settings.reasoningMarkdownRendering,
       _settings.assistantMessageMarkdownRendering,
       _settings.autoFoldCodeBlocks,
       _settings.mobileCodeBlockAutoWrap,
@@ -323,7 +322,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
 
   String _behaviorSummary() {
     final enabledCount = <bool>[
-      _settings.foldThinkingSteps,
       _settings.deleteMessagesBelowOnRegenerate,
       _settings.confirmBeforeRegenerate,
       _settings.showMessageNavigationButtons,
@@ -680,18 +678,6 @@ class _RenderingDisplaySettingsPageState
                 },
               ),
               _RenderingSwitchRow(
-                key: const Key('rendering_reasoning_markdown_row'),
-                switchKey: const Key('rendering_reasoning_markdown_switch'),
-                icon: const Icon(Icons.psychology_outlined, size: 25),
-                title: '思维链 Markdown 渲染',
-                value: _settings.reasoningMarkdownRendering,
-                onChanged: (value) {
-                  _update(
-                    _settings.copyWith(reasoningMarkdownRendering: value),
-                  );
-                },
-              ),
-              _RenderingSwitchRow(
                 key: const Key('rendering_assistant_markdown_row'),
                 switchKey: const Key('rendering_assistant_markdown_switch'),
                 icon: const Icon(Icons.chat_bubble_outline, size: 24),
@@ -792,16 +778,6 @@ class _BehaviorDisplaySettingsPageState
           _RenderingSettingsCard(
             children: <Widget>[
               _RenderingSwitchRow(
-                key: const Key('behavior_fold_thinking_steps_row'),
-                switchKey: const Key('behavior_fold_thinking_steps_switch'),
-                icon: const Icon(Icons.account_tree_outlined, size: 25),
-                title: '折叠思考步骤',
-                value: _settings.foldThinkingSteps,
-                onChanged: (value) {
-                  _update(_settings.copyWith(foldThinkingSteps: value));
-                },
-              ),
-              _RenderingSwitchRow(
                 key: const Key('behavior_delete_below_regenerate_row'),
                 switchKey: const Key('behavior_delete_below_regenerate_switch'),
                 icon: const Icon(Icons.refresh, size: 25),
@@ -887,7 +863,6 @@ class _BehaviorDisplaySettingsPageState
     const defaults = ChatDisplaySettings();
     _update(
       _settings.copyWith(
-        foldThinkingSteps: defaults.foldThinkingSteps,
         deleteMessagesBelowOnRegenerate:
             defaults.deleteMessagesBelowOnRegenerate,
         confirmBeforeRegenerate: defaults.confirmBeforeRegenerate,

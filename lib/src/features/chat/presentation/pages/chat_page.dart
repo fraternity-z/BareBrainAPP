@@ -77,6 +77,9 @@ class _ChatPageState extends State<ChatPage> {
                         child: _Sidebar(
                           controller: widget.controller,
                           displaySettings: widget.displaySettings,
+                          onClearConversationPressed: () {
+                            unawaited(_clearConversationWithConfirmation());
+                          },
                           onSettingsPressed: _openSettings,
                           closeAfterAction: true,
                           showBorder: false,
@@ -97,6 +100,9 @@ class _ChatPageState extends State<ChatPage> {
                         child: _Sidebar(
                           controller: widget.controller,
                           displaySettings: widget.displaySettings,
+                          onClearConversationPressed: () {
+                            unawaited(_clearConversationWithConfirmation());
+                          },
                           onSettingsPressed: _openSettings,
                         ),
                       ),
@@ -132,7 +138,9 @@ class _ChatPageState extends State<ChatPage> {
                                             });
                                           }
                                         : null,
-                                    onClearPressed: widget.controller.clear,
+                                    onNewConversationPressed: () {
+                                      unawaited(_createConversation());
+                                    },
                                     onMenuPressed: wide
                                         ? null
                                         : () {
@@ -167,8 +175,9 @@ class _ChatPageState extends State<ChatPage> {
                                 onSend: _send,
                                 onShortcutCommandsPressed:
                                     _openShortcutCommandList,
-                                onNewConversationPressed: () {
-                                  unawaited(_createConversation());
+                                onClearConversationPressed: () {
+                                  unawaited(
+                                      _clearConversationWithConfirmation());
                                 },
                                 onQuickPhrasesPressed:
                                     widget.appSettingsController == null
@@ -242,6 +251,39 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _createConversation() async {
     _syncRuntimeSettings();
     await widget.controller.createConversation();
+  }
+
+  Future<void> _clearConversationWithConfirmation() async {
+    final confirmed = await _confirmClearConversation();
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    widget.controller.clear();
+  }
+
+  Future<bool> _confirmClearConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('清空当前会话？'),
+          content: const Text('当前会话里的消息将被清空，此操作无法撤销。'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('清空'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed == true;
   }
 
   Future<bool> _confirmRegenerate() async {
@@ -701,6 +743,7 @@ class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.controller,
     required this.displaySettings,
+    required this.onClearConversationPressed,
     required this.onSettingsPressed,
     this.closeAfterAction = false,
     this.showBorder = true,
@@ -711,6 +754,7 @@ class _Sidebar extends StatelessWidget {
 
   final ChatController controller;
   final ChatDisplaySettings displaySettings;
+  final VoidCallback onClearConversationPressed;
   final VoidCallback onSettingsPressed;
   final bool closeAfterAction;
   final bool showBorder;
@@ -775,7 +819,7 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
             _SidebarFooter(
-              onClearPressed: controller.clear,
+              onClearPressed: onClearConversationPressed,
               onSettingsPressed: () {
                 if (closeAfterAction) {
                   unawaited(
@@ -1346,7 +1390,7 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.title,
     required this.settings,
-    required this.onClearPressed,
+    required this.onNewConversationPressed,
     this.sidebarExpanded,
     this.onSidebarPressed,
     this.onMenuPressed,
@@ -1354,7 +1398,7 @@ class _Header extends StatelessWidget {
 
   final String title;
   final ChatConnectionSettings settings;
-  final VoidCallback onClearPressed;
+  final VoidCallback onNewConversationPressed;
   final bool? sidebarExpanded;
   final VoidCallback? onSidebarPressed;
   final VoidCallback? onMenuPressed;
@@ -1406,9 +1450,9 @@ class _Header extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: '清空会话',
-              onPressed: onClearPressed,
-              icon: const Icon(Icons.delete_outline),
+              tooltip: '新建会话',
+              onPressed: onNewConversationPressed,
+              icon: const Icon(Icons.add_comment_outlined),
             ),
           ],
         ),
@@ -2404,7 +2448,7 @@ class _Composer extends StatelessWidget {
     required this.onChanged,
     required this.onSend,
     required this.onShortcutCommandsPressed,
-    required this.onNewConversationPressed,
+    required this.onClearConversationPressed,
     this.onQuickPhrasesPressed,
   });
 
@@ -2414,7 +2458,7 @@ class _Composer extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
   final VoidCallback onShortcutCommandsPressed;
-  final VoidCallback onNewConversationPressed;
+  final VoidCallback onClearConversationPressed;
   final VoidCallback? onQuickPhrasesPressed;
 
   @override
@@ -2503,12 +2547,13 @@ class _Composer extends StatelessWidget {
                   icon: Icons.bolt_outlined,
                   onPressed: onQuickPhrasesPressed,
                 ),
-                const Spacer(),
+                const SizedBox(width: 18),
                 _ComposerToolIcon(
-                  tooltip: '新建会话',
-                  icon: Icons.add_comment_outlined,
-                  onPressed: onNewConversationPressed,
+                  tooltip: '清空会话',
+                  icon: Icons.delete_outline,
+                  onPressed: onClearConversationPressed,
                 ),
+                const Spacer(),
                 const SizedBox(width: 10),
                 ValueListenableBuilder<TextEditingValue>(
                   valueListenable: textController,

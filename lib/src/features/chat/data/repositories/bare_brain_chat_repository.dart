@@ -1,5 +1,6 @@
 import '../../../../core/errors/chat_exception.dart';
 import '../../domain/entities/chat_connection_settings.dart';
+import '../../domain/entities/incoming_chat_message.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../datasources/chat_transport.dart';
 
@@ -13,6 +14,20 @@ class BareBrainChatRepository implements ChatRepository {
   @override
   Future<void> checkConnection(ChatConnectionSettings settings) {
     return _transport.checkConnection(settings);
+  }
+
+  @override
+  Stream<IncomingChatMessage> receiveMessages(
+    ChatConnectionSettings settings, {
+    required String chatId,
+  }) {
+    return _transport.receiveMessages(settings, chatId: chatId).map((event) {
+      return IncomingChatMessage(
+        content: event.content,
+        chatId: event.chatId,
+        requestId: event.requestId,
+      );
+    });
   }
 
   @override
