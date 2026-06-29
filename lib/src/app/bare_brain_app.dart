@@ -63,6 +63,7 @@ class _BareBrainAppState extends State<BareBrainApp> {
           themeMode: _themeMode(displaySettings.colorMode),
           theme: BareBrainTheme.light(displaySettings: displaySettings),
           darkTheme: BareBrainTheme.dark(displaySettings: displaySettings),
+          themeAnimationDuration: Duration.zero,
           home: ChatPage(
             controller: _controller,
             displaySettings: displaySettings,

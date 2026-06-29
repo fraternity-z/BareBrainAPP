@@ -340,6 +340,10 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
   }
 
   void _update(ChatDisplaySettings settings) {
+    if (settings == _settings) {
+      return;
+    }
+
     setState(() => _settings = settings);
     widget.onChanged?.call(settings);
   }
@@ -427,6 +431,10 @@ class _ThemeDisplaySettingsPageState extends State<ThemeDisplaySettingsPage> {
   }
 
   void _update(ChatDisplaySettings settings) {
+    if (settings == _settings) {
+      return;
+    }
+
     setState(() => _settings = settings);
     widget.onChanged?.call(settings);
   }
@@ -1414,9 +1422,7 @@ class _ThemePresetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previewColors = BareBrainTheme.light(
-      displaySettings: ChatDisplaySettings(themePreset: preset),
-    ).colorScheme;
+    final previewColors = BareBrainTheme.lightColorScheme(preset);
     final appColors = Theme.of(context).colorScheme;
     final borderColor =
         selected ? previewColors.primary : appColors.outlineVariant;

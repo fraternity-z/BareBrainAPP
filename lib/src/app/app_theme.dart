@@ -6,53 +6,92 @@ import '../features/chat/domain/entities/chat_display_settings.dart';
 class BareBrainTheme {
   const BareBrainTheme._();
 
+  static final Map<_ThemeDataCacheKey, ThemeData> _themeCache =
+      <_ThemeDataCacheKey, ThemeData>{};
+  static final Map<_ColorSchemeCacheKey, ColorScheme> _colorSchemeCache =
+      <_ColorSchemeCacheKey, ColorScheme>{};
+
   static ThemeData light({
     ChatDisplaySettings displaySettings = const ChatDisplaySettings(),
   }) {
-    final palette = _ThemePalette.light(displaySettings.themePreset);
-    const surfaces = _ThemeSurfaces.light;
-    final colors = ColorScheme.fromSeed(
-      seedColor: palette.seed,
+    return _themeData(
       brightness: Brightness.light,
-    ).copyWith(
-      primary: palette.primary,
-      onPrimary: palette.onPrimary,
-      primaryContainer: palette.primaryContainer,
-      onPrimaryContainer: palette.onPrimaryContainer,
-      secondary: palette.secondary,
-      onSecondary: palette.onSecondary,
-      secondaryContainer: palette.secondaryContainer,
-      onSecondaryContainer: palette.onSecondaryContainer,
-      tertiary: palette.tertiary,
-      onTertiary: palette.onTertiary,
-      tertiaryContainer: palette.tertiaryContainer,
-      onTertiaryContainer: palette.onTertiaryContainer,
-      surface: surfaces.surface,
-      surfaceContainerLowest: surfaces.surfaceContainerLowest,
-      surfaceContainerLow: surfaces.surfaceContainerLow,
-      surfaceContainer: surfaces.surfaceContainer,
-      surfaceContainerHigh: surfaces.surfaceContainerHigh,
-      surfaceContainerHighest: surfaces.surfaceContainerHighest,
-      outline: surfaces.outline,
-      outlineVariant: surfaces.outlineVariant,
-      onSurface: surfaces.onSurface,
-      onSurfaceVariant: surfaces.onSurfaceVariant,
+      preset: displaySettings.themePreset,
+      appFont: displaySettings.appFont,
     );
-
-    final theme = _build(colors, appFont: displaySettings.appFont);
-    return displaySettings.appFont == ChatAppFont.system
-        ? theme.useSystemChineseFont(Brightness.light)
-        : theme;
   }
 
   static ThemeData dark({
     ChatDisplaySettings displaySettings = const ChatDisplaySettings(),
   }) {
-    final palette = _ThemePalette.dark(displaySettings.themePreset);
-    const surfaces = _ThemeSurfaces.dark;
+    return _themeData(
+      brightness: Brightness.dark,
+      preset: displaySettings.themePreset,
+      appFont: displaySettings.appFont,
+    );
+  }
+
+  static ColorScheme lightColorScheme(ChatThemePreset preset) {
+    return _colorScheme(brightness: Brightness.light, preset: preset);
+  }
+
+  static ThemeData _themeData({
+    required Brightness brightness,
+    required ChatThemePreset preset,
+    required ChatAppFont appFont,
+  }) {
+    final key = _ThemeDataCacheKey(
+      brightness: brightness,
+      preset: preset,
+      appFont: appFont,
+    );
+    return _themeCache[key] ??= _buildThemeData(
+      brightness: brightness,
+      preset: preset,
+      appFont: appFont,
+    );
+  }
+
+  static ThemeData _buildThemeData({
+    required Brightness brightness,
+    required ChatThemePreset preset,
+    required ChatAppFont appFont,
+  }) {
+    final theme = _build(
+      _colorScheme(brightness: brightness, preset: preset),
+      appFont: appFont,
+    );
+    return appFont == ChatAppFont.system
+        ? theme.useSystemChineseFont(brightness)
+        : theme;
+  }
+
+  static ColorScheme _colorScheme({
+    required Brightness brightness,
+    required ChatThemePreset preset,
+  }) {
+    final key = _ColorSchemeCacheKey(brightness: brightness, preset: preset);
+    return _colorSchemeCache[key] ??= _buildColorScheme(
+      brightness: brightness,
+      preset: preset,
+    );
+  }
+
+  static ColorScheme _buildColorScheme({
+    required Brightness brightness,
+    required ChatThemePreset preset,
+  }) {
+    final palette = switch (brightness) {
+      Brightness.light => _ThemePalette.light(preset),
+      Brightness.dark => _ThemePalette.dark(preset),
+    };
+    final surfaces = switch (brightness) {
+      Brightness.light => _ThemeSurfaces.light,
+      Brightness.dark => _ThemeSurfaces.dark,
+    };
     final colors = ColorScheme.fromSeed(
       seedColor: palette.seed,
-      brightness: Brightness.dark,
+      brightness: brightness,
     ).copyWith(
       primary: palette.primary,
       onPrimary: palette.onPrimary,
@@ -78,10 +117,7 @@ class BareBrainTheme {
       onSurfaceVariant: surfaces.onSurfaceVariant,
     );
 
-    final theme = _build(colors, appFont: displaySettings.appFont);
-    return displaySettings.appFont == ChatAppFont.system
-        ? theme.useSystemChineseFont(Brightness.dark)
-        : theme;
+    return colors;
   }
 
   static ThemeData _build(
@@ -303,6 +339,51 @@ class BareBrainTheme {
           labelSmall: source.labelSmall?.copyWith(letterSpacing: 0),
         );
   }
+}
+
+class _ThemeDataCacheKey {
+  const _ThemeDataCacheKey({
+    required this.brightness,
+    required this.preset,
+    required this.appFont,
+  });
+
+  final Brightness brightness;
+  final ChatThemePreset preset;
+  final ChatAppFont appFont;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _ThemeDataCacheKey &&
+            other.brightness == brightness &&
+            other.preset == preset &&
+            other.appFont == appFont;
+  }
+
+  @override
+  int get hashCode => Object.hash(brightness, preset, appFont);
+}
+
+class _ColorSchemeCacheKey {
+  const _ColorSchemeCacheKey({
+    required this.brightness,
+    required this.preset,
+  });
+
+  final Brightness brightness;
+  final ChatThemePreset preset;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _ColorSchemeCacheKey &&
+            other.brightness == brightness &&
+            other.preset == preset;
+  }
+
+  @override
+  int get hashCode => Object.hash(brightness, preset);
 }
 
 class _ThemePalette {

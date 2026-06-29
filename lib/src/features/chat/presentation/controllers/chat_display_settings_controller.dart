@@ -48,6 +48,10 @@ class ChatDisplaySettingsController extends ChangeNotifier {
   }
 
   void update(ChatDisplaySettings settings) {
+    if (settings == _settings) {
+      return;
+    }
+
     _revision++;
     _settings = settings;
     _errorMessage = null;
