@@ -424,6 +424,10 @@ class _ChatPageState extends State<ChatPage> {
               onTestNetworkProxyConnection: widget.onTestNetworkProxyConnection,
               onTestOtaVersionCheck: widget.onTestOtaVersionCheck,
               loadStorageUsage: widget.controller.loadStorageUsage,
+              loadConversationBackup:
+                  widget.controller.exportConversationBackup,
+              onConversationBackupImported:
+                  widget.controller.restoreConversationBackup,
             );
           },
         ),

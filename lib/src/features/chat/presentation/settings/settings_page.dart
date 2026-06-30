@@ -39,6 +39,8 @@ class ChatSettingsPage extends StatefulWidget {
     this.onTestNetworkProxyConnection,
     this.onTestOtaVersionCheck,
     this.loadStorageUsage,
+    this.loadConversationBackup,
+    this.onConversationBackupImported,
     super.key,
   });
 
@@ -53,6 +55,8 @@ class ChatSettingsPage extends StatefulWidget {
   final TestNetworkProxyConnection? onTestNetworkProxyConnection;
   final TestOtaVersionCheck? onTestOtaVersionCheck;
   final LoadChatStorageUsage? loadStorageUsage;
+  final LoadChatConversationBackup? loadConversationBackup;
+  final ImportChatConversationBackup? onConversationBackupImported;
 
   @override
   State<ChatSettingsPage> createState() => _ChatSettingsPageState();
@@ -352,10 +356,12 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             appSettings: _appSettingsController.settings,
             connectionSettings: _settings,
             displaySettings: _currentDisplaySettings,
+            loadConversationBackup: widget.loadConversationBackup,
             onChanged: _appSettingsController.updateStorage,
             onAppSettingsImported: _appSettingsController.update,
             onConnectionSettingsImported: _applySettings,
             onDisplaySettingsImported: _applyDisplaySettings,
+            onConversationBackupImported: widget.onConversationBackupImported,
           ),
         ),
       ),

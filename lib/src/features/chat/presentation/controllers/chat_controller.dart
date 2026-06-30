@@ -25,6 +25,52 @@ import '../../domain/usecases/send_chat_message.dart';
 import '../../data/models/chat_conversation_catalog_codec.dart';
 import '../../data/models/chat_session_snapshot_codec.dart';
 
+enum ChatConversationRestoreMode {
+  overwrite,
+  merge,
+}
+
+class ChatConversationBackup {
+  const ChatConversationBackup({
+    this.catalog,
+    this.snapshots = const <String, ChatSessionSnapshot>{},
+  });
+
+  final ChatConversationCatalog? catalog;
+  final Map<String, ChatSessionSnapshot> snapshots;
+
+  bool get isEmpty {
+    return (catalog == null || catalog!.conversations.isEmpty) &&
+        snapshots.isEmpty;
+  }
+
+  int get conversationCount {
+    final catalogCount = catalog?.conversations.length ?? 0;
+    return catalogCount > snapshots.length ? catalogCount : snapshots.length;
+  }
+
+  int get messageCount {
+    if (snapshots.isNotEmpty) {
+      return snapshots.values.fold<int>(
+        0,
+        (total, snapshot) => total + snapshot.messages.length,
+      );
+    }
+
+    return catalog?.conversations.fold<int>(
+          0,
+          (total, conversation) => total + conversation.messageCount,
+        ) ??
+        0;
+  }
+
+  int get draftCount {
+    return snapshots.values.where((snapshot) {
+      return snapshot.draft.trim().isNotEmpty;
+    }).length;
+  }
+}
+
 class ChatController extends ChangeNotifier {
   ChatController({
     required SendChatMessage sendChatMessage,
@@ -122,11 +168,18 @@ class ChatController extends ChangeNotifier {
     await _saveCatalogSummary();
 
     final storedCatalog = await _catalogStore?.load();
-    final catalog = storedCatalog ??
-        ChatConversationCatalog(
-          activeConversationId: _conversationId,
-          conversations: _conversations,
-        );
+    final catalog = _mergeCatalogBackups(
+      storedCatalog ??
+          ChatConversationCatalog(
+            activeConversationId: _conversationId,
+            conversations: const <ChatConversationSummary>[],
+          ),
+      ChatConversationCatalog(
+        activeConversationId: _conversationId,
+        conversations: _conversations,
+      ),
+      preferBackup: true,
+    );
 
     final seenConversationIds = <String>{};
     var messageCount = 0;
@@ -173,6 +226,116 @@ class ChatController extends ChangeNotifier {
       snapshotBytes: snapshotBytes,
       lastUpdated: lastUpdated,
     );
+  }
+
+  Future<ChatConversationBackup> exportConversationBackup() async {
+    await _saveSnapshotImmediately();
+    await _saveCatalogSummary();
+
+    final storedCatalog = await _catalogStore?.load();
+    final catalog = storedCatalog ??
+        ChatConversationCatalog(
+          activeConversationId: _conversationId,
+          conversations: _conversations,
+        );
+    final snapshots = <String, ChatSessionSnapshot>{};
+    final seenConversationIds = <String>{};
+
+    for (final conversation in catalog.conversations) {
+      if (!seenConversationIds.add(conversation.id)) {
+        continue;
+      }
+
+      final snapshot = conversation.id == _conversationId
+          ? _currentSnapshot()
+          : await _storeForConversation(conversation.id)?.load();
+      if (snapshot != null) {
+        snapshots[conversation.id] = snapshot;
+      }
+    }
+
+    return ChatConversationBackup(
+      catalog: catalog,
+      snapshots: Map<String, ChatSessionSnapshot>.unmodifiable(snapshots),
+    );
+  }
+
+  Future<void> restoreConversationBackup(
+    ChatConversationBackup backup, {
+    ChatConversationRestoreMode mode = ChatConversationRestoreMode.overwrite,
+  }) async {
+    if (backup.isEmpty) {
+      return;
+    }
+
+    try {
+      await _saveSnapshotImmediately();
+      await _saveCatalogSummary();
+
+      final currentCatalog = await _catalogStore?.load() ??
+          ChatConversationCatalog(
+            activeConversationId: _conversationId,
+            conversations: _conversations,
+          );
+      final backupCatalog = backup.catalog ??
+          ChatConversationCatalog(
+            activeConversationId: backup.snapshots.keys.first,
+            conversations: const <ChatConversationSummary>[],
+          );
+      var nextCatalog = mode == ChatConversationRestoreMode.overwrite
+          ? _catalogWithSnapshotFallbacks(backupCatalog, backup.snapshots)
+          : _mergeCatalogBackups(
+              currentCatalog,
+              _catalogWithSnapshotFallbacks(backupCatalog, backup.snapshots),
+            );
+      final currentConversationIds = currentCatalog.conversations.map(
+        (conversation) {
+          return conversation.id;
+        },
+      ).toSet();
+      final restoredSnapshots = <String, ChatSessionSnapshot>{};
+
+      if (mode == ChatConversationRestoreMode.overwrite) {
+        await _clearConversationSnapshots(currentCatalog.conversations);
+      }
+      for (final entry in backup.snapshots.entries) {
+        final store = _storeForConversation(entry.key);
+        var snapshot = entry.value;
+        if (mode == ChatConversationRestoreMode.merge &&
+            currentConversationIds.contains(entry.key)) {
+          final currentSnapshot = await store?.load();
+          if (currentSnapshot != null) {
+            snapshot = _mergeSnapshots(currentSnapshot, entry.value);
+          }
+        }
+        await store?.save(snapshot);
+        restoredSnapshots[entry.key] = snapshot;
+      }
+      nextCatalog =
+          _catalogUpdatedWithSnapshots(nextCatalog, restoredSnapshots);
+
+      await _catalogStore?.save(nextCatalog);
+      _replaceConversations(nextCatalog.conversations);
+      final active = nextCatalog.activeConversation;
+      if (active != null) {
+        _conversationId = active.id;
+        _conversationTitle = active.title;
+        _settings = active.settings;
+        _activeSessionStore = _storeForConversation(active.id);
+      }
+
+      _messages.clear();
+      _deferredIncomingMessages.clear();
+      _draft = '';
+      await _restoreActiveSnapshot();
+      _errorMessage = null;
+      _restartIncomingMessageSubscription();
+      _notify();
+    } catch (error) {
+      _errorMessage = '恢复会话备份失败：$error';
+      _notify();
+      rethrow;
+    }
   }
 
   Future<void> restore() async {
@@ -1136,6 +1299,166 @@ class ChatController extends ChangeNotifier {
     );
   }
 
+  ChatConversationCatalog _catalogWithSnapshotFallbacks(
+    ChatConversationCatalog catalog,
+    Map<String, ChatSessionSnapshot> snapshots,
+  ) {
+    if (snapshots.isEmpty) {
+      return catalog;
+    }
+
+    final conversations = <ChatConversationSummary>[...catalog.conversations];
+    final knownIds = conversations.map((conversation) {
+      return conversation.id;
+    }).toSet();
+    for (final entry in snapshots.entries) {
+      if (knownIds.contains(entry.key)) {
+        continue;
+      }
+
+      conversations.add(_summaryFromSnapshot(entry.key, entry.value));
+    }
+
+    conversations.sort((left, right) => right.updatedAt.compareTo(
+          left.updatedAt,
+        ));
+
+    return ChatConversationCatalog(
+      activeConversationId: catalog.activeConversationId.isNotEmpty
+          ? catalog.activeConversationId
+          : (conversations.isEmpty ? '' : conversations.first.id),
+      conversations: List<ChatConversationSummary>.unmodifiable(conversations),
+    );
+  }
+
+  ChatConversationCatalog _mergeCatalogBackups(
+    ChatConversationCatalog current,
+    ChatConversationCatalog backup, {
+    bool preferBackup = false,
+  }) {
+    final byId = <String, ChatConversationSummary>{};
+    for (final conversation in current.conversations) {
+      byId[conversation.id] = conversation;
+    }
+    for (final conversation in backup.conversations) {
+      if (preferBackup) {
+        byId[conversation.id] = conversation;
+      } else {
+        byId.putIfAbsent(conversation.id, () => conversation);
+      }
+    }
+
+    final conversations = byId.values.toList(growable: false)
+      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+
+    return ChatConversationCatalog(
+      activeConversationId:
+          preferBackup && backup.activeConversationId.isNotEmpty
+              ? backup.activeConversationId
+              : current.activeConversationId.isNotEmpty
+                  ? current.activeConversationId
+                  : backup.activeConversationId,
+      conversations: List<ChatConversationSummary>.unmodifiable(conversations),
+    );
+  }
+
+  ChatConversationCatalog _catalogUpdatedWithSnapshots(
+    ChatConversationCatalog catalog,
+    Map<String, ChatSessionSnapshot> snapshots,
+  ) {
+    if (snapshots.isEmpty) {
+      return catalog;
+    }
+
+    final conversations = catalog.conversations.map((conversation) {
+      final snapshot = snapshots[conversation.id];
+      if (snapshot == null) {
+        return conversation;
+      }
+
+      return _summaryFromSnapshot(conversation.id, snapshot).copyWith(
+        title: conversation.title,
+      );
+    }).toList(growable: false)
+      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+
+    return ChatConversationCatalog(
+      activeConversationId: catalog.activeConversationId,
+      conversations: List<ChatConversationSummary>.unmodifiable(conversations),
+    );
+  }
+
+  ChatSessionSnapshot _mergeSnapshots(
+    ChatSessionSnapshot current,
+    ChatSessionSnapshot backup,
+  ) {
+    final messagesById = <String, ChatMessage>{};
+    for (final message in current.messages) {
+      messagesById[message.id] = message;
+    }
+    for (final message in backup.messages) {
+      messagesById.putIfAbsent(message.id, () => message);
+    }
+
+    final messages = messagesById.values.toList(growable: false)
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final draft =
+        current.draft.trim().isNotEmpty ? current.draft : backup.draft;
+
+    return ChatSessionSnapshot(
+      settings: current.settings,
+      messages: List<ChatMessage>.unmodifiable(messages),
+      draft: draft,
+    );
+  }
+
+  ChatSessionSnapshot _currentSnapshot() {
+    return ChatSessionSnapshot(
+      settings: _settings,
+      messages: List<ChatMessage>.unmodifiable(_messages),
+      draft: _storageSettings.saveDrafts ? _draft : '',
+    );
+  }
+
+  ChatConversationSummary _summaryFromSnapshot(
+    String conversationId,
+    ChatSessionSnapshot snapshot,
+  ) {
+    final messages = snapshot.messages;
+    final updatedAt =
+        messages.isEmpty ? DateTime.now() : messages.last.createdAt;
+    String? title;
+    for (final message in messages) {
+      if (message.author != ChatMessageAuthor.user) {
+        continue;
+      }
+
+      final normalized = message.content.trim().replaceAll(
+            RegExp(r'\s+'),
+            ' ',
+          );
+      if (normalized.isEmpty) {
+        continue;
+      }
+
+      title = normalized.length <= 28
+          ? normalized
+          : '${normalized.substring(0, 28)}...';
+      break;
+    }
+
+    return ChatConversationSummary(
+      id: conversationId,
+      title: title ?? conversationId,
+      settings: snapshot.settings,
+      updatedAt: updatedAt,
+      messageCount: messages.length,
+      lastMessagePreview: messages.isEmpty
+          ? ''
+          : messages.last.content.trim().replaceAll(RegExp(r'\s+'), ' '),
+    );
+  }
+
   Future<void> _clearPrunedConversationSnapshots(
     ChatConversationCatalog previous,
     ChatConversationCatalog next,
@@ -1150,6 +1473,14 @@ class ChatController extends ChangeNotifier {
         continue;
       }
 
+      await _sessionStoreFactory?.forConversation(conversation.id).clear();
+    }
+  }
+
+  Future<void> _clearConversationSnapshots(
+    List<ChatConversationSummary> conversations,
+  ) async {
+    for (final conversation in conversations) {
       await _sessionStoreFactory?.forConversation(conversation.id).clear();
     }
   }
