@@ -50,8 +50,29 @@ class _ChatPageState extends State<ChatPage> {
   bool _sidebarCollapsed = false;
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_syncComposerForConversation);
+    _syncComposerForConversation();
+  }
+
+  @override
+  void didUpdateWidget(ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) {
+      return;
+    }
+
+    oldWidget.controller.removeListener(_syncComposerForConversation);
+    widget.controller.addListener(_syncComposerForConversation);
+    _composerConversationId = null;
+    _syncComposerForConversation();
+  }
+
+  @override
   void dispose() {
     _pendingAutoScrollTimer?.cancel();
+    widget.controller.removeListener(_syncComposerForConversation);
     _composer.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -59,75 +80,74 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        _syncComposerForConversation();
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 860;
-            final desktopSidebarExpanded = wide && !_sidebarCollapsed;
-            final drawerWidth = math.min(320.0, constraints.maxWidth * 0.8);
-            return Scaffold(
-              drawer: wide
-                  ? null
-                  : Drawer(
-                      width: drawerWidth,
-                      child: SafeArea(
-                        child: _Sidebar(
-                          controller: widget.controller,
-                          displaySettings: widget.displaySettings,
-                          onClearConversationPressed: () {
-                            unawaited(_clearConversationWithConfirmation());
-                          },
-                          onSettingsPressed: _openSettings,
-                          closeAfterAction: true,
-                          showBorder: false,
-                          width: double.infinity,
-                        ),
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 860;
+        final desktopSidebarExpanded = wide && !_sidebarCollapsed;
+        final drawerWidth = math.min(320.0, constraints.maxWidth * 0.8);
+        return Scaffold(
+          drawer: wide
+              ? null
+              : Drawer(
+                  width: drawerWidth,
+                  child: SafeArea(
+                    child: _Sidebar(
+                      controller: widget.controller,
+                      displaySettings: widget.displaySettings,
+                      onClearConversationPressed: () {
+                        unawaited(_clearConversationWithConfirmation());
+                      },
+                      onSettingsPressed: _openSettings,
+                      closeAfterAction: true,
+                      showBorder: false,
+                      width: double.infinity,
                     ),
-              body: SafeArea(
-                child: LiquidGlassBackdrop(
-                  key: const Key('chat_surface'),
-                  baseColor: _chatSurfaceColor(
-                    Theme.of(context).colorScheme,
                   ),
-                  child: Row(
-                    children: <Widget>[
-                      _DesktopSidebarTransition(
-                        expanded: desktopSidebarExpanded,
-                        child: _Sidebar(
-                          controller: widget.controller,
-                          displaySettings: widget.displaySettings,
-                          onClearConversationPressed: () {
-                            unawaited(_clearConversationWithConfirmation());
-                          },
-                          onSettingsPressed: _openSettings,
-                        ),
-                      ),
-                      Expanded(
-                        child: Listener(
-                          behavior: HitTestBehavior.translucent,
-                          onPointerDown: desktopSidebarExpanded
-                              ? (event) {
-                                  if (_isSidebarTogglePointer(
-                                    event.localPosition,
-                                  )) {
-                                    return;
-                                  }
-                                  setState(() {
-                                    _sidebarCollapsed = true;
-                                  });
-                                }
-                              : null,
-                          child: Column(
-                            children: <Widget>[
-                              Builder(
-                                builder: (scaffoldContext) {
+                ),
+          body: SafeArea(
+            child: LiquidGlassBackdrop(
+              key: const Key('chat_surface'),
+              baseColor: _chatSurfaceColor(
+                Theme.of(context).colorScheme,
+              ),
+              child: Row(
+                children: <Widget>[
+                  _DesktopSidebarTransition(
+                    expanded: desktopSidebarExpanded,
+                    child: _Sidebar(
+                      controller: widget.controller,
+                      displaySettings: widget.displaySettings,
+                      onClearConversationPressed: () {
+                        unawaited(_clearConversationWithConfirmation());
+                      },
+                      onSettingsPressed: _openSettings,
+                    ),
+                  ),
+                  Expanded(
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: desktopSidebarExpanded
+                          ? (event) {
+                              if (_isSidebarTogglePointer(
+                                event.localPosition,
+                              )) {
+                                return;
+                              }
+                              setState(() {
+                                _sidebarCollapsed = true;
+                              });
+                            }
+                          : null,
+                      child: Column(
+                        children: <Widget>[
+                          Builder(
+                            builder: (scaffoldContext) {
+                              return _ChatControllerBuilder(
+                                controller: widget.controller,
+                                builder: (context, controller) {
                                   return _Header(
-                                    title: widget.controller.conversationTitle,
-                                    settings: widget.controller.settings,
+                                    title: controller.conversationTitle,
+                                    settings: controller.settings,
                                     sidebarExpanded:
                                         wide ? desktopSidebarExpanded : null,
                                     onSidebarPressed: wide
@@ -149,14 +169,24 @@ class _ChatPageState extends State<ChatPage> {
                                           },
                                   );
                                 },
-                              ),
-                              _StatusBanner(
-                                controller: widget.controller,
+                              );
+                            },
+                          ),
+                          _ChatControllerBuilder(
+                            controller: widget.controller,
+                            builder: (context, controller) {
+                              return _StatusBanner(
+                                controller: controller,
                                 onRetry: () => unawaited(_retryLastMessage()),
-                              ),
-                              Expanded(
-                                child: _MessageList(
-                                  controller: widget.controller,
+                              );
+                            },
+                          ),
+                          Expanded(
+                            child: _ChatControllerBuilder(
+                              controller: widget.controller,
+                              builder: (context, controller) {
+                                return _MessageList(
+                                  controller: controller,
                                   displaySettings: widget.displaySettings,
                                   onCopyMessage: (content) {
                                     unawaited(_copyMessage(content));
@@ -165,10 +195,15 @@ class _ChatPageState extends State<ChatPage> {
                                     unawaited(_retryLastMessage());
                                   },
                                   scrollController: _scrollController,
-                                ),
-                              ),
-                              _Composer(
-                                controller: widget.controller,
+                                );
+                              },
+                            ),
+                          ),
+                          _ChatControllerBuilder(
+                            controller: widget.controller,
+                            builder: (context, controller) {
+                              return _Composer(
+                                controller: controller,
                                 displaySettings: widget.displaySettings,
                                 textController: _composer,
                                 onChanged: _updateDraft,
@@ -183,17 +218,17 @@ class _ChatPageState extends State<ChatPage> {
                                     widget.appSettingsController == null
                                         ? null
                                         : _openQuickPhrasePicker,
-                              ),
-                            ],
+                              );
+                            },
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
@@ -626,6 +661,25 @@ Color _chatSurfaceColor(ColorScheme colors) {
   );
 }
 
+class _ChatControllerBuilder extends StatelessWidget {
+  const _ChatControllerBuilder({
+    required this.controller,
+    required this.builder,
+  });
+
+  final ChatController controller;
+  final Widget Function(BuildContext context, ChatController controller)
+      builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => builder(context, controller),
+    );
+  }
+}
+
 class _StatusBanner extends StatelessWidget {
   const _StatusBanner({
     required this.controller,
@@ -812,10 +866,15 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: _ConversationList(
+              child: _ChatControllerBuilder(
                 controller: controller,
-                displaySettings: displaySettings,
-                closeAfterSelection: closeAfterAction,
+                builder: (context, controller) {
+                  return _ConversationList(
+                    controller: controller,
+                    displaySettings: displaySettings,
+                    closeAfterSelection: closeAfterAction,
+                  );
+                },
               ),
             ),
             _SidebarFooter(
@@ -1538,13 +1597,17 @@ class _MessageList extends StatelessWidget {
         height: displaySettings.compactMessageSpacing ? 8 : 14,
       ),
       itemBuilder: (context, index) {
-        return MessageBubble(
-          message: messages[index],
-          displaySettings: displaySettings,
-          onCopy: () => onCopyMessage(messages[index].content),
-          onRetry: canRetryLastMessage && index == messages.length - 2
-              ? onRetryMessage
-              : null,
+        final message = messages[index];
+        return RepaintBoundary(
+          key: ValueKey<String>(message.id),
+          child: MessageBubble(
+            message: message,
+            displaySettings: displaySettings,
+            onCopy: () => onCopyMessage(message.content),
+            onRetry: canRetryLastMessage && index == messages.length - 2
+                ? onRetryMessage
+                : null,
+          ),
         );
       },
     );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -65,9 +66,14 @@ class ChatController extends ChangeNotifier {
   ChatConnectionSettings _settings;
   ChatSessionStore? _activeSessionStore;
   final List<ChatMessage> _messages = <ChatMessage>[];
+  late final UnmodifiableListView<ChatMessage> _messageView =
+      UnmodifiableListView<ChatMessage>(_messages);
   final List<IncomingChatMessage> _deferredIncomingMessages =
       <IncomingChatMessage>[];
-  List<ChatConversationSummary> _conversations = <ChatConversationSummary>[];
+  final List<ChatConversationSummary> _conversations =
+      <ChatConversationSummary>[];
+  late final UnmodifiableListView<ChatConversationSummary> _conversationView =
+      UnmodifiableListView<ChatConversationSummary>(_conversations);
   String _draft = '';
   bool _isSending = false;
   bool _isDisposed = false;
@@ -87,7 +93,7 @@ class ChatController extends ChangeNotifier {
   static const String _incomingErrorPrefix = '主动接收失败：';
 
   ChatConnectionSettings get settings => _settings;
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  List<ChatMessage> get messages => _messageView;
   String get draft => _draft;
   bool get isSending => _isSending;
   String? get errorMessage => _errorMessage;
@@ -109,9 +115,7 @@ class ChatController extends ChangeNotifier {
     );
   }
 
-  List<ChatConversationSummary> get conversations {
-    return List<ChatConversationSummary>.unmodifiable(_conversations);
-  }
+  List<ChatConversationSummary> get conversations => _conversationView;
 
   Future<ChatStorageUsage> loadStorageUsage() async {
     await _saveSnapshotImmediately();
@@ -315,7 +319,7 @@ class ChatController extends ChangeNotifier {
                 conversations: _conversations,
               ))
           .remove(conversationId);
-      _conversations = next.conversations;
+      _replaceConversations(next.conversations);
       await store?.save(next);
       _errorMessage = null;
       _notify();
@@ -354,7 +358,7 @@ class ChatController extends ChangeNotifier {
                 conversations: _conversations,
               ))
           .rename(conversationId, nextTitle);
-      _conversations = next.conversations;
+      _replaceConversations(next.conversations);
       if (conversationId == _conversationId) {
         _conversationTitle = nextTitle;
       }
@@ -940,7 +944,7 @@ class ChatController extends ChangeNotifier {
             conversations: _conversations,
           );
       final next = _applyStoragePolicy(catalog.upsertActive(summary));
-      _conversations = next.conversations;
+      _replaceConversations(next.conversations);
       if (shouldPersist) {
         await _clearPrunedConversationSnapshots(catalog, next);
         await store?.save(next);
@@ -961,9 +965,7 @@ class ChatController extends ChangeNotifier {
       return;
     }
 
-    _conversations = List<ChatConversationSummary>.unmodifiable(
-      catalog.conversations,
-    );
+    _replaceConversations(catalog.conversations);
     final active = catalog.activeConversation;
     if (active == null) {
       return;
@@ -1019,6 +1021,12 @@ class ChatController extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  void _replaceConversations(List<ChatConversationSummary> conversations) {
+    _conversations
+      ..clear()
+      ..addAll(conversations);
   }
 
   int? _lastRetryableUserMessageIndex() {

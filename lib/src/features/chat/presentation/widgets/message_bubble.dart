@@ -331,7 +331,7 @@ class _MessageTextRenderer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (markdown) {
+    if (markdown && _containsRichTextSyntax(content, markdownOptions)) {
       return _MarkdownMessageText(
         content: content,
         selectable: selectable,
@@ -373,15 +373,7 @@ class _MarkdownMessageText extends StatelessWidget {
       fontFamily: 'monospace',
       backgroundColor: foreground.withValues(alpha: 0.08),
     );
-    final normalized = _normalizeMathBlocks(content, options);
-    final syntaxes = <md.BlockSyntax>[
-      if (options.blockMath) LatexBlockSyntax(),
-      ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-    ];
-    final inlineSyntaxes = <md.InlineSyntax>[
-      if (options.inlineMath || options.blockMath) LatexInlineSyntax(),
-      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-    ];
+    final normalized = _cachedNormalizeMathBlocks(content, options);
 
     return MarkdownBody(
       data: normalized,
@@ -394,7 +386,7 @@ class _MarkdownMessageText extends StatelessWidget {
             textStyle: baseStyle?.copyWith(color: foreground),
           ),
       },
-      extensionSet: md.ExtensionSet(syntaxes, inlineSyntaxes),
+      extensionSet: _extensionSetFor(options),
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: baseStyle?.copyWith(color: foreground),
         h1: baseStyle?.copyWith(
@@ -486,19 +478,109 @@ class _MarkdownRenderOptions {
 
   final bool inlineMath;
   final bool blockMath;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _MarkdownRenderOptions &&
+            other.inlineMath == inlineMath &&
+            other.blockMath == blockMath;
+  }
+
+  @override
+  int get hashCode => Object.hash(inlineMath, blockMath);
+}
+
+class _NormalizedMathCacheKey {
+  const _NormalizedMathCacheKey({
+    required this.content,
+    required this.options,
+  });
+
+  final String content;
+  final _MarkdownRenderOptions options;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _NormalizedMathCacheKey &&
+            other.content == content &&
+            other.options == options;
+  }
+
+  @override
+  int get hashCode => Object.hash(content, options);
+}
+
+final Map<_MarkdownRenderOptions, md.ExtensionSet> _extensionSetCache =
+    <_MarkdownRenderOptions, md.ExtensionSet>{};
+final Map<_NormalizedMathCacheKey, String> _normalizedMathCache =
+    <_NormalizedMathCacheKey, String>{};
+
+bool _containsRichTextSyntax(
+  String content,
+  _MarkdownRenderOptions options,
+) {
+  if (content.isEmpty) {
+    return false;
+  }
+
+  if ((options.inlineMath || options.blockMath) &&
+      (content.contains(r'\(') ||
+          content.contains(r'\[') ||
+          content.contains(r'$$') ||
+          _inlineDollarPattern.hasMatch(content))) {
+    return true;
+  }
+
+  return _markdownSyntaxPattern.hasMatch(content);
+}
+
+md.ExtensionSet _extensionSetFor(_MarkdownRenderOptions options) {
+  return _extensionSetCache[options] ??= md.ExtensionSet(
+    <md.BlockSyntax>[
+      if (options.blockMath) LatexBlockSyntax(),
+      ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+    ],
+    <md.InlineSyntax>[
+      if (options.inlineMath || options.blockMath) LatexInlineSyntax(),
+      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+    ],
+  );
+}
+
+String _cachedNormalizeMathBlocks(
+  String content,
+  _MarkdownRenderOptions options,
+) {
+  if (!options.inlineMath && !options.blockMath) {
+    return content;
+  }
+
+  final key = _NormalizedMathCacheKey(content: content, options: options);
+  final cached = _normalizedMathCache[key];
+  if (cached != null) {
+    return cached;
+  }
+
+  final normalized = _normalizeMathBlocks(content, options);
+  if (_normalizedMathCache.length >= 128) {
+    _normalizedMathCache.clear();
+  }
+  _normalizedMathCache[key] = normalized;
+  return normalized;
 }
 
 String _normalizeMathBlocks(String content, _MarkdownRenderOptions options) {
   var normalized = content;
 
   if (!options.blockMath) {
-    normalized = normalized
-        .replaceAllMapped(_displayParenBlockPattern, (match) {
-          return '${match.group(1)}${match.group(2)}${match.group(3)}';
-        })
-        .replaceAllMapped(_displayDollarBlockPattern, (match) {
-          return '${match.group(1)}${match.group(2)}${match.group(3)}';
-        });
+    normalized =
+        normalized.replaceAllMapped(_displayParenBlockPattern, (match) {
+      return '${match.group(1)}${match.group(2)}${match.group(3)}';
+    }).replaceAllMapped(_displayDollarBlockPattern, (match) {
+      return '${match.group(1)}${match.group(2)}${match.group(3)}';
+    });
   }
 
   if (!options.inlineMath) {
@@ -514,15 +596,13 @@ String _normalizeMathBlocks(String content, _MarkdownRenderOptions options) {
     return normalized;
   }
 
-  return normalized
-      .replaceAllMapped(_displayBracketMultilinePattern, (match) {
-        final body = match.group(1)?.trim() ?? '';
-        return '\\[ $body \\]';
-      })
-      .replaceAllMapped(_displayDollarMultilinePattern, (match) {
-        final body = match.group(1)?.trim() ?? '';
-        return '\$\$\n$body\n\$\$';
-      });
+  return normalized.replaceAllMapped(_displayBracketMultilinePattern, (match) {
+    final body = match.group(1)?.trim() ?? '';
+    return '\\[ $body \\]';
+  }).replaceAllMapped(_displayDollarMultilinePattern, (match) {
+    final body = match.group(1)?.trim() ?? '';
+    return '\$\$\n$body\n\$\$';
+  });
 }
 
 final _displayBracketMultilinePattern = RegExp(
@@ -542,6 +622,10 @@ final _inlineParenPattern = RegExp(
 );
 final _inlineDollarPattern = RegExp(
   r'(?<!\$)(\$)([^\n$]+?)(\$)(?!\$)',
+);
+final _markdownSyntaxPattern = RegExp(
+  r'(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```|---\s*$)|'
+  r'(\*\*|__|~~|`|\[[^\]]+\]\(|!\[[^\]]*\]\(|\n\|.*\|)',
 );
 
 class _MessageAuthorAvatar extends StatelessWidget {
